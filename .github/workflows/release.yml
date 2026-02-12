@@ -6,7 +6,56 @@ on:
       - main
 
 jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            args: --linux
+            artifact_pattern: |
+              dist/*.AppImage
+              dist/*.deb
+          - os: windows-latest
+            platform: win
+            args: --win
+            artifact_pattern: |
+              dist/*.exe
+          - os: macos-latest
+            platform: mac
+            args: --mac
+            artifact_pattern: |
+              dist/*.dmg
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Electron app (${{ matrix.platform }})
+        run: npm run dist -- ${{ matrix.args }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: ${{ matrix.artifact_pattern }}
+          if-no-files-found: error
+
   release:
+    needs: build
     runs-on: ubuntu-latest
 
     permissions:
@@ -14,20 +63,16 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
         with:
-          node-version: '20'
+          path: artifacts
+          merge-multiple: true
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build and package Electron app
-        run: npm run dist -- --win --mac
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: List artifacts
+        run: find artifacts -type f | head -50
 
       - name: Get package version
         id: get_version
@@ -39,10 +84,10 @@ jobs:
         with:
           tag_name: v${{ env.PACKAGE_VERSION }}
           files: |
-            dist/*.exe
-            dist/*.dmg
-            dist/*.AppImage
-            dist/*.deb
+            artifacts/**/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.AppImage
+            artifacts/**/*.deb
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -85,11 +130,10 @@ jobs:
             /<!-- DOWNLOADS_TABLE_START -->/!{ /<!-- DOWNLOADS_TABLE_END -->/!d
             }
             }' "$readme_path"
-          fi          
+          fi
 
       - name: Commit Updated README and landing page
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "docs: update README and landing page with latest release downloads [skip ci]"
           file_pattern: "README.md docs/index.html"
-

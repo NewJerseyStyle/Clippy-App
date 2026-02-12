@@ -1,6 +1,6 @@
 {
   "name": "clippy-electron",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Clippy as a desktop app",
   "main": "main.js",
   "scripts": {
@@ -10,7 +10,9 @@
   },
   "devDependencies": {
     "electron": "^40.4.0",
-    "electron-builder": "^26.7.0",
+    "electron-builder": "^26.7.0"
+  },
+  "optionalDependencies": {
     "dmg-license": "^1.0.10"
   },
   "dependencies": {
