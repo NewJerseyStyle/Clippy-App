@@ -14,6 +14,9 @@ A modern, AI-powered desktop version of the classic Clippy assistant, built with
 ## Getting Started
 
 <!-- DOWNLOADS_TABLE_START -->
+| Platform | Download |
+|---|---|
+| Linux | [clippy-electron-1.0.0.AppImage](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.0.0/clippy-electron-1.0.0.AppImage) |
 <!-- DOWNLOADS_TABLE_END -->
 
 ### How to Use 🖇️
