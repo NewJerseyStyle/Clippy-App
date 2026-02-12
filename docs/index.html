@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clippy App</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f0f0f0;
+    }
+    .container {
+      text-align: center;
+      background-color: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+    }
+    .os-picker {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .os-picker button {
+      padding: 0.5rem 1rem;
+      border: 1px solid #ccc;
+      border-radius: 0.5rem;
+      background-color: #eee;
+      cursor: pointer;
+    }
+    .os-picker button.active {
+      background-color: #007bff;
+      color: white;
+      border-color: #007bff;
+    }
+    .download-button {
+      display: none;
+      padding: 1rem 2rem;
+      background-color: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 0.5rem;
+    }
+    .download-button.active {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Clippy App</h1>
+    <p>Your friendly desktop assistant.</p>
+
+    <div class="os-picker">
+      <button data-os="windows">Windows</button>
+      <button data-os="macos">macOS</button>
+      <button data-os="linux">Linux</button>
+    </div>
+
+    <!-- DOWNLOAD_LINKS_PLACEHOLDER -->
+    <a href="#" class="download-button" data-os="windows">Download for Windows</a>
+    <a href="#" class="download-button" data-os="macos">Download for macOS</a>
+    <a href="#" class="download-button" data-os="linux">Download for Linux</a>
+    <!-- END_DOWNLOAD_LINKS_PLACEHOLDER -->
+  </div>
+
+  <script>
+    const osPicker = document.querySelector('.os-picker');
+    const downloadButtons = document.querySelectorAll('.download-button');
+
+    osPicker.addEventListener('click', (event) => {
+      if (event.target.tagName !== 'BUTTON') return;
+
+      const os = event.target.dataset.os;
+
+      osPicker.querySelectorAll('button').forEach(button => button.classList.remove('active'));
+      event.target.classList.add('active');
+
+      downloadButtons.forEach(button => {
+        if (button.dataset.os === os) {
+          button.classList.add('active');
+        } else {
+          button.classList.remove('active');
+        }
+      });
+    });
+
+    // Auto-detect OS
+    const userAgent = window.navigator.userAgent;
+    let detectedOS = null;
+    if (userAgent.indexOf("Win") !== -1) detectedOS = "windows";
+    if (userAgent.indexOf("Mac") !== -1) detectedOS = "macos";
+    if (userAgent.indexOf("Linux") !== -1) detectedOS = "linux";
+
+    if (detectedOS) {
+      osPicker.querySelector(`[data-os="${detectedOS}"]`).click();
+    }
+  </script>
+</body>
+</html>

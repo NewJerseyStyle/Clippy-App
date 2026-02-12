@@ -25,7 +25,7 @@ jobs:
         run: npm install
 
       - name: Build and package Electron app
-        run: npm run dist
+        run: npm run dist -- --win --mac
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -46,6 +46,20 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update landing page
+        run: |
+          assets='${{ steps.create_release.outputs.assets }}'
+          html=""
+          echo "$assets" | jq -c '.[]' | while read -r asset; do
+            url=$(echo "$asset" | jq -r '.browser_download_url')
+            name=$(echo "$asset" | jq -r '.name')
+            os="linux"
+            if [[ "$name" == *".exe"* ]]; then os="windows"; fi
+            if [[ "$name" == *".dmg"* ]]; then os="macos"; fi
+            html="$html<a href=\"$url\" class=\"download-button\" data-os=\"$os\">Download for $os</a>"
+          done
+          sed -i 's|<!-- DOWNLOAD_LINKS_PLACEHOLDER -->.*<!-- END_DOWNLOAD_LINKS_PLACEHOLDER -->|<!-- DOWNLOAD_LINKS_PLACEHOLDER -->\n'"$html"'\n<!-- END_DOWNLOAD_LINKS_PLACEHOLDER -->|' docs/index.html
 
       - name: Generate Downloads Table
         id: downloads_table
@@ -73,9 +87,9 @@ jobs:
             }' "$readme_path"
           fi          
 
-      - name: Commit Updated README
+      - name: Commit Updated README and landing page
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "docs: update README with latest release downloads [skip ci]"
-          file_pattern: "README.md"
+          commit_message: "docs: update README and landing page with latest release downloads [skip ci]"
+          file_pattern: "README.md docs/index.html"
 
