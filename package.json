@@ -1,6 +1,6 @@
 {
   "name": "clippy-electron",
-  "version": "1.1.1",
+  "version": "1.1.0",
   "description": "Clippy as a desktop app",
   "main": "main.js",
   "scripts": {
@@ -22,7 +22,8 @@
     "axios": "^1.6.8",
     "elizabot": "^0.0.3",
     "electron-store": "^8.1.0",
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "@lancedb/lancedb": "^0.5.0"
   },
   "build": {
     "appId": "com.example.clippy-electron",
@@ -32,5 +33,4 @@
       "repo": "Clippy-App"
     }]
   }
-
 }
