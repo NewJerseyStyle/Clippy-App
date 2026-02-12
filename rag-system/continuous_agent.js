@@ -517,6 +517,7 @@ class ContinuousAgent extends EventEmitter {
     this.workingMemory = new WorkingMemory(20, this.longTermMemory);
     this.dialectic = new DialecticEngine(this);
     this.workingMemory.dialecticEngine = this.dialectic;
+    this.symbolicReasoning = options.symbolicReasoning || null;
 
     // 事件隊列
     this.eventQueue = [];
@@ -783,6 +784,18 @@ ${recentMemories.map(m => `- ${m.type}: ${JSON.stringify(m.data)}`).join('\n')}
   }
   
   buildDecisionPrompt(orientation) {
+    // Build symbolic reasoning tool description if available
+    let symbolicToolDesc = '';
+    if (this.symbolicReasoning?.isAvailable()) {
+      const engines = this.symbolicReasoning.getAvailableEngines();
+      symbolicToolDesc = `
+   - **symbolic_reasoning** — 符號推理工具，可進行形式化推理
+     引擎: ${engines.join(', ')}
+     何時使用：需要精確的數學計算、邏輯驗證、約束求解、或基於規則的推理
+     認識論：符號推理提供形式化的確定性，可補充 LLM 的直覺推理盲點
+     設定 "symbolicEngine" 可指定引擎，否則自動選擇`;
+    }
+
     return `基於 ORID 分析，做出決策：
 
 ${JSON.stringify(orientation.orid, null, 2)}
@@ -802,7 +815,7 @@ ${JSON.stringify(orientation.orid, null, 2)}
 
 2. **use_tool** - 使用工具
    - 何時：需要外部信息或執行任務
-   - 工具：search, calculate, file_operation 等
+   - 工具：search, calculate, file_operation${symbolicToolDesc}
 
 3. **internal_processing** - 內部處理
    - 何時：需要思考或整理記憶，但不打擾用戶
@@ -819,8 +832,10 @@ ${JSON.stringify(orientation.orid, null, 2)}
   "epistemicConfidence": "low | medium | high — 對這個決策的認識論信心",
   "parameters": {
     // 行動相關參數
-    "tool": "如果 use_tool，是哪個工具",
-    "content": "如果 respond，回應內容的關鍵點",
+    "tool": "如果 use_tool，是哪個工具 (如 symbolic_reasoning)",
+    "symbolicEngine": "如果 use_tool=symbolic_reasoning，可選指定引擎",
+    "content": "如果 respond，回應內容的關鍵點；如果 symbolic_reasoning，問題描述",
+    "reportToUser": true,
     "tone": "friendly | professional | casual",
     "timing": "immediate | delayed",
     "briefness": "brief | moderate | detailed"
@@ -930,16 +945,63 @@ ${JSON.stringify(orientation.orid, null, 2)}
     return this.parseJSON(response.content[0].text);
   }
   
+  async useTool(decision) {
+    const tool = decision.parameters?.tool;
+    this.log(`🔧 使用工具: ${tool}`);
+
+    if (tool === 'symbolic_reasoning' && this.symbolicReasoning?.isAvailable()) {
+      const query = decision.parameters?.content || '';
+      const engine = decision.parameters?.symbolicEngine || null;
+
+      this.log(`🔬 Symbolic reasoning: ${query.substring(0, 60)}...`);
+      const result = await this.symbolicReasoning.reason(query, engine);
+
+      // Store result in working memory
+      this.workingMemory.add({
+        type: 'agent_action',
+        data: {
+          action: 'symbolic_reasoning',
+          engine: result.engine,
+          query: result.formalQuery,
+          result: result.interpretation || result.rawResult,
+          success: result.success,
+          confidence: result.confidence,
+          summary: result.success
+            ? `Symbolic (${result.engine}): ${(result.interpretation || '').substring(0, 100)}`
+            : `Symbolic reasoning failed: ${result.error}`
+        }
+      });
+
+      // If reasoning produced a result, send it to user or keep for context
+      if (result.success && decision.parameters?.reportToUser) {
+        this.emit('message', {
+          type: 'assistant',
+          content: result.interpretation,
+          tone: 'professional',
+          metadata: {
+            engine: result.engine,
+            formalQuery: result.formalQuery,
+            confidence: result.confidence
+          }
+        });
+      }
+
+      this.log(`✓ Symbolic result (${result.engine}, ${result.confidence}): ${(result.interpretation || result.error || '').substring(0, 80)}`);
+    } else {
+      this.log(`⚠️ Tool not available: ${tool}`);
+    }
+  }
+
   async internalProcessing(decision) {
     this.log('🤔 內部處理中...');
     this.lastThinkTime = Date.now();
-    
+
     // 可以做：
     // - 整理記憶
     // - 反思
     // - 規劃
     // - 學習
-    
+
     // 這些不會打擾用戶
   }
   
