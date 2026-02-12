@@ -1,0 +1,29 @@
+{
+  "name": "clippy-electron",
+  "version": "1.0.0",
+  "description": "Clippy as a desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^40.4.0",
+    "electron-builder": "^26.7.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "elizabot": "^0.0.3",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.7"
+  },
+  "build": {
+    "appId": "com.example.clippy-electron",
+    "publish": [{
+      "provider": "github",
+      "owner": "",
+      "repo": ""
+    }]
+  }
+}
