@@ -51,7 +51,9 @@ jobs:
         id: downloads_table
         run: |
           assets='${{ steps.create_release.outputs.assets }}'
-          table="| Platform | Download |\n|---|---|\n"
+          table_file=$(mktemp)
+          echo "| Platform | Download |" > "$table_file"
+          echo "|---|---|" >> "$table_file"
           echo "$assets" | jq -c '.[]' | while read -r asset; do
             url=$(echo "$asset" | jq -r '.browser_download_url')
             name=$(echo "$asset" | jq -r '.name')
@@ -60,25 +62,20 @@ jobs:
             if [[ "$name" == *".dmg"* ]]; then platform="macOS"; fi
             if [[ "$name" == *".AppImage"* ]]; then platform="Linux"; fi
             if [[ "$name" == *".deb"* ]]; then platform="Linux (Debian)"; fi
-            table="$table| $platform | [$name]($url) |\n"
+            echo "| $platform | [$name]($url) |" >> "$table_file"
           done
 
           readme_path="README.md"
           if [[ -f "$readme_path" ]]; then
-            # Escape table content for single-line replacement
-            esc_table=$(printf "%s" "$table" | sed ':a;N;$!ba;s/\n/\\n/g')
-            # Replace block between markers
-            awk -v t="$$esc_table" 'BEGIN {start="<!-- DOWNLOADS_TABLE_START -->"; end="<!-- DOWNLOADS_TABLE_END -->"} 
-              {print} 
-              /start/ {in_block=1} 
-              in_block && $0 ~ end {in_block=0; print t; print $0; next}
-              in_block {next}' "$readme_path" > /tmp/README.new && mv /tmp/README.new "$readme_path"
-          else
-            echo "README.md not found; skipping README update."
-          fi
-          
+            sed -i '/<!-- DOWNLOADS_TABLE_START -->/,/<!-- DOWNLOADS_TABLE_END -->/{ /<!-- DOWNLOADS_TABLE_START -->/r '"$table_file"'
+            /<!-- DOWNLOADS_TABLE_START -->/!{ /<!-- DOWNLOADS_TABLE_END -->/!d
+            }
+            }' "$readme_path"
+          fi          
+
       - name: Commit Updated README
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "docs: update README with latest release downloads [skip ci]"
           file_pattern: "README.md"
+
