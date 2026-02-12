@@ -22,8 +22,8 @@
     "appId": "com.example.clippy-electron",
     "publish": [{
       "provider": "github",
-      "owner": "",
-      "repo": ""
+      "owner": "NewJerseyStyle",
+      "repo": "Clippy-App"
     }]
   }
 }
