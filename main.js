@@ -113,28 +113,20 @@ function createSettingsWindow() {
 }
 
 function checkForUpdates() {
-  const githubRepo = store.get('github-repo');
-  if (githubRepo) {
-    const [owner, repo] = githubRepo.split('/');
-    if (owner && repo) {
-      autoUpdater.setFeedURL({
-        provider: 'github',
-        owner: owner,
-        repo: repo
-      });
-      autoUpdater.checkForUpdatesAndNotify();
-    } else {
-      dialog.showMessageBox({
-        type: 'error',
-        title: 'Update Error',
-        message: "Invalid GitHub repository format. Please use 'owner/repo'."
-      });
-    }
+  const owner = "NewJerseyStyle";
+  const repo = "Clippy-App";
+  if (owner && repo) {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: owner,
+      repo: repo
+    });
+    autoUpdater.checkForUpdatesAndNotify();
   } else {
     dialog.showMessageBox({
       type: 'error',
       title: 'Update Error',
-      message: 'GitHub repository not configured.'
+      message: "Invalid GitHub repository format. Please use 'owner/repo'."
     });
   }
 }
