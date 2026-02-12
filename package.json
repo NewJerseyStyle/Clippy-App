@@ -1,6 +1,6 @@
 {
   "name": "clippy-electron",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Clippy as a desktop app",
   "main": "main.js",
   "scripts": {
@@ -32,4 +32,5 @@
       "repo": "Clippy-App"
     }]
   }
+
 }
