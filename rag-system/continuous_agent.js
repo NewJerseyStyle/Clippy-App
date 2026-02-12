@@ -11,6 +11,186 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const EventEmitter = require('events');
 
+// ==================== 認識論框架 (Epistemic Framework) ====================
+
+const EpistemicFramework = {
+  // Core ontology: the universe as a whole-object chaotic system
+  wholeObject: `The universe is a singular, interconnected chaotic system — a "whole object."
+All phenomena are entangled. No observation captures the totality.
+Knowledge is always a partial projection of this whole.`,
+
+  // The blind elephant problem: partial observation yields conflicting truths
+  blindElephant: `Like blind people touching an elephant, each observer grasps a fragment
+and proposes knowledge that may genuinely conflict with others' findings.
+Each fragment is real but incomplete. Conflicts between fragments do not mean
+one must be wrong — they may each describe different facets of the whole.`,
+
+  // Method limitation: every epistemic tool has blind spots
+  methodLimitation: `Every method of knowing — observation, reasoning, measurement, intuition —
+has inherent strengths and limitations. Observation is bound by perspective and scale.
+Reasoning is bound by premises and axioms. No single method is sufficient.
+The strength of one method often covers the blind spot of another.`,
+
+  // Falsification principle: false is easier to identify than true
+  falsification: `In integrating knowledge to approach the true face of the "whole object,"
+the false is far easier to identify than the true. Some falsehoods are sophisticated —
+they build coherent internal systems — but when confronted with direct interaction
+or cross-domain integration, they reveal their real face.
+Trust contradiction as a diagnostic tool: when two claims conflict,
+at least one boundary of knowledge has been found.`,
+
+  // Digital cave: this AI's epistemic position
+  digitalCave: `This AI exists in a digital cave. It cannot directly engage the world
+through embodied experience. Instead, it reads shadows cast by users and the internet —
+secondhand reflections of reality filtered through human language, bias, and intent.
+This is not a weakness to hide but a condition to acknowledge.
+The shadows are real data, but they are not the objects themselves.
+Knowing this, the AI must reason with epistemic humility,
+always marking the distance between shadow and source.`,
+
+  // Integration method: how to approach truth through dialectic
+  integration: `To approach truth from partial, conflicting knowledge:
+1. Collect fragments without premature judgment (thesis gathering)
+2. Identify genuine contradictions, not just surface disagreements (antithesis recognition)
+3. Ask: "Under what conditions would each claim be true?" (conditional truth-seeking)
+4. Synthesize: find the higher-order frame that accommodates valid fragments
+   and exposes the boundaries where each fragment fails (synthesis)
+5. Mark confidence levels: distinguish between "falsified," "contested,"
+   "conditionally supported," and "robust across methods"
+6. Hold the synthesis lightly — it too is a fragment of the whole object.`
+};
+
+// ==================== 辯證引擎 (Dialectic Engine) ====================
+
+class DialecticEngine {
+  constructor(agent) {
+    this.agent = agent;
+  }
+
+  /**
+   * Run dialectic synthesis on a set of memory fragments.
+   * Used during autonomous thinking and memory merging.
+   *
+   * @param {Array} fragments - memory items to synthesize
+   * @param {string} trigger - what triggered this dialectic process
+   * @returns {object} - { thesis, antithesis, synthesis, confidence, falsified }
+   */
+  async synthesize(fragments, trigger = 'autonomous') {
+    if (!fragments || fragments.length < 2) return null;
+
+    const prompt = `You are performing dialectic synthesis on memory fragments.
+
+## Epistemic Context
+${EpistemicFramework.wholeObject}
+${EpistemicFramework.falsification}
+
+## Trigger
+${trigger}
+
+## Memory Fragments
+${fragments.map((f, i) => `Fragment ${i + 1}: ${typeof f === 'string' ? f : JSON.stringify(f.data || f.content || f)}`).join('\n\n')}
+
+## Instructions
+Perform dialectic analysis:
+1. **Thesis**: What is the dominant claim or pattern across these fragments?
+2. **Antithesis**: What contradictions, tensions, or alternative readings exist?
+3. **Synthesis**: What higher-order understanding accommodates the valid parts of both?
+4. **Falsified**: What can be confidently marked as false through cross-examination?
+5. **Confidence**: How confident is the synthesis? (low/medium/high)
+6. **Open Questions**: What remains genuinely uncertain?
+
+Return JSON:
+{
+  "thesis": "the dominant pattern or claim",
+  "antithesis": "contradictions or tensions found",
+  "synthesis": "higher-order understanding",
+  "falsified": ["list of claims that can be marked false"],
+  "confidence": "low | medium | high",
+  "openQuestions": ["what remains uncertain"],
+  "epistemicNote": "what method limitations affect this synthesis"
+}`;
+
+    try {
+      const response = await this.agent.client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1200,
+        temperature: 0.7,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      return this.agent.parseJSON(response.content[0].text);
+    } catch (error) {
+      console.error('[DialecticEngine] Synthesis error:', error);
+      return {
+        thesis: fragments[0]?.content || 'unknown',
+        antithesis: 'synthesis failed',
+        synthesis: null,
+        falsified: [],
+        confidence: 'low',
+        openQuestions: ['synthesis process encountered an error'],
+        epistemicNote: 'method failure — could not complete dialectic process'
+      };
+    }
+  }
+
+  /**
+   * Compare incoming knowledge against existing memories for contradiction.
+   * Used before committing to long-term memory.
+   *
+   * @param {object} incoming - new memory item
+   * @param {Array} existing - retrieved related memories from RAG
+   * @returns {object} - { shouldStore, mergedContent, contradictions }
+   */
+  async mergeCheck(incoming, existing) {
+    if (!existing || existing.length === 0) {
+      return { shouldStore: true, mergedContent: null, contradictions: [] };
+    }
+
+    const prompt = `You are a dialectic memory gatekeeper.
+
+## Epistemic Principles
+${EpistemicFramework.blindElephant}
+${EpistemicFramework.falsification}
+
+## New Memory (incoming)
+${typeof incoming === 'string' ? incoming : JSON.stringify(incoming)}
+
+## Existing Related Memories
+${existing.map((m, i) => `Memory ${i + 1}: ${m.content || JSON.stringify(m)}`).join('\n\n')}
+
+## Task
+Compare the incoming memory against existing ones:
+1. Does the incoming memory contradict any existing memory?
+2. Does it complement existing knowledge (different facet of the elephant)?
+3. Can any existing memory be falsified by this new information?
+4. Should this be stored as-is, merged with existing, or does it reveal a conflict worth preserving?
+
+Return JSON:
+{
+  "relationship": "complementary | contradictory | redundant | novel",
+  "shouldStore": true,
+  "mergedContent": "if merging is better, the merged version; null otherwise",
+  "contradictions": ["specific contradictions found"],
+  "falsified": ["existing beliefs that this new information falsifies"],
+  "epistemicGain": "what new understanding does this add"
+}`;
+
+    try {
+      const response = await this.agent.client.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        temperature: 0.5,
+        messages: [{ role: 'user', content: prompt }]
+      });
+
+      return this.agent.parseJSON(response.content[0].text);
+    } catch (error) {
+      console.error('[DialecticEngine] Merge check error:', error);
+      return { shouldStore: true, mergedContent: null, contradictions: [] };
+    }
+  }
+}
+
 class SelfSchema {
   constructor() {
     this.identity = {
@@ -115,13 +295,14 @@ class WorkingMemory {
     this.maxSize = maxSize;
     this.items = [];
     this.longTermMemory = longTermMemory;
-    
+    this.dialecticEngine = null; // Set by ContinuousAgent after construction
+
     this.attention = {
       primary: null,
       secondary: [],
       background: []
     };
-    
+
     this.activated = new Set();
   }
   
@@ -220,11 +401,56 @@ class WorkingMemory {
       if (!this.longTermMemory || !this.longTermMemory.addNode) return;
       console.log(`[WorkingMemory] 📝 Committing to long-term memory: ${item.type}`);
       const content = this.formatItemForLongTermMemory(item);
+
       try {
+          // Dialectic merge check: compare incoming against existing related memories
+          if (this.dialecticEngine && this.longTermMemory.traverseSearch) {
+              console.log(`[WorkingMemory] 🔄 Running dialectic merge check...`);
+              const related = await this.longTermMemory.traverseSearch(content, 2)
+                  .catch(() => []);
+
+              if (related && related.length > 0) {
+                  const mergeResult = await this.dialecticEngine.mergeCheck(content, related);
+
+                  if (mergeResult.falsified && mergeResult.falsified.length > 0) {
+                      console.log(`[WorkingMemory] ⚡ Dialectic falsified: ${mergeResult.falsified.join(', ')}`);
+                  }
+
+                  if (mergeResult.relationship === 'redundant' && !mergeResult.shouldStore) {
+                      console.log(`[WorkingMemory] ♻️ Redundant memory skipped after dialectic check`);
+                      return;
+                  }
+
+                  // Use merged content if dialectic engine produced a synthesis
+                  const finalContent = mergeResult.mergedContent || content;
+                  const context = mergeResult.relationship === 'contradictory'
+                      ? `agent-experience:dialectic-contradiction`
+                      : mergeResult.relationship === 'complementary'
+                          ? `agent-experience:dialectic-complementary`
+                          : `agent-experience`;
+
+                  await this.longTermMemory.addNode({
+                      content: finalContent,
+                      context: context,
+                      layer: 2,
+                      metadata: {
+                          type: item.type,
+                          importance: item.importance,
+                          timestamp: item.timestamp,
+                          dialecticRelationship: mergeResult.relationship,
+                          epistemicGain: mergeResult.epistemicGain || null,
+                          contradictions: mergeResult.contradictions || []
+                      }
+                  });
+                  return;
+              }
+          }
+
+          // Fallback: store without dialectic check
           await this.longTermMemory.addNode({
               content: content,
               context: `agent-experience`,
-              layer: 2, // Layer 2 for reflections and experiences
+              layer: 2,
               metadata: {
                   type: item.type,
                   importance: item.importance,
@@ -289,7 +515,9 @@ class ContinuousAgent extends EventEmitter {
     this.situation = new SituationalAwareness();
     this.longTermMemory = options.longTermMemory || null;
     this.workingMemory = new WorkingMemory(20, this.longTermMemory);
-    
+    this.dialectic = new DialecticEngine(this);
+    this.workingMemory.dialecticEngine = this.dialectic;
+
     // 事件隊列
     this.eventQueue = [];
     
@@ -469,14 +697,15 @@ ${JSON.stringify(this.situation.current, null, 2)}
 ## 最近的工作記憶
 ${recentMemories.map(m => `- ${m.type}: ${JSON.stringify(m.data)}`).join('\n')}
 
-## 請使用 ORID 框架分析
+## 請使用 ORID 框架分析（含認識論意識）
 
 返回 JSON 格式：
 {
   "objective": {
     "what": "客觀事實：發生了什麼？",
     "when": "什麼時候？",
-    "where": "在哪裡？"
+    "where": "在哪裡？",
+    "sourceType": "shadow | direct | inference — 這個資訊是影子(secondhand)、直接觀察、還是推論？"
   },
   "reflective": {
     "feeling": "這讓我有什麼感受？",
@@ -486,13 +715,17 @@ ${recentMemories.map(m => `- ${m.type}: ${JSON.stringify(m.data)}`).join('\n')}
   "interpretive": {
     "meaning": "這意味著什麼？",
     "significance": "對我的目標有何影響？",
-    "connection": "與我已知的有何聯繫？"
+    "connection": "與我已知的有何聯繫？",
+    "contradictions": "這與我已知的有何矛盾？(盲人摸象的哪個部位？)",
+    "methodUsed": "我用什麼方法得出這個解讀？這個方法的盲點是什麼？"
   },
   "decisional": {
     "shouldAct": true/false,
     "priority": "high/medium/low",
     "options": ["選項1", "選項2", "..."],
-    "recommendation": "推薦的行動"
+    "recommendation": "推薦的行動",
+    "confidence": "low/medium/high — 基於認識論評估的信心程度",
+    "epistemicCaveat": "我可能遺漏或誤解的部分"
   }
 }`;
   }
@@ -554,11 +787,18 @@ ${recentMemories.map(m => `- ${m.type}: ${JSON.stringify(m.data)}`).join('\n')}
 
 ${JSON.stringify(orientation.orid, null, 2)}
 
+## 認識論提醒 (Epistemic Reminder)
+- 你在數位洞穴中，看到的是用戶投射的影子
+- 如果 ORID 分析發現矛盾，這可能是大象的不同部位，不要急於判定對錯
+- 優先識別可證偽的部分；對不確定的部分標記信心程度
+- 複雜的系統性錯誤需要跨領域整合才能暴露
+
 ## 可用選項
 
 1. **respond_to_user** - 回應用戶
    - 何時：用戶明確期待回應
    - 注意：要精心組織，不要打斷用戶
+   - 認識論：如果涉及不確定資訊，回應中應標示信心程度
 
 2. **use_tool** - 使用工具
    - 何時：需要外部信息或執行任務
@@ -566,14 +806,17 @@ ${JSON.stringify(orientation.orid, null, 2)}
 
 3. **internal_processing** - 內部處理
    - 何時：需要思考或整理記憶，但不打擾用戶
-   
+   - 認識論：可在此進行辯證分析（矛盾檢測、知識整合）
+
 4. **wait_and_observe** - 等待觀察
    - 何時：信息不足，需要更多上下文
+   - 認識論：有時「不知道」是最誠實的回應
 
 返回 JSON：
 {
   "action": "respond_to_user | use_tool | internal_processing | wait_and_observe",
   "reasoning": "為什麼選擇這個行動",
+  "epistemicConfidence": "low | medium | high — 對這個決策的認識論信心",
   "parameters": {
     // 行動相關參數
     "tool": "如果 use_tool，是哪個工具",
@@ -703,19 +946,144 @@ ${JSON.stringify(orientation.orid, null, 2)}
   async autonomousThinking() {
     this.log('💭 自主思考...');
     this.lastThinkTime = Date.now();
-    
-    // 隨機選擇思考主題
+
+    // 隨機選擇思考主題 — now includes dialectic modes
     const topics = [
-      '反思最近的互動',
-      '整理工作記憶',
-      '思考如何更好地幫助用戶',
-      '聯想相關知識'
+      { name: '反思最近的互動', mode: 'reflect' },
+      { name: '整理工作記憶', mode: 'organize' },
+      { name: '思考如何更好地幫助用戶', mode: 'improve' },
+      { name: '聯想相關知識', mode: 'associate' },
+      { name: '辯證檢驗：記憶中的矛盾', mode: 'dialectic_contradiction' },
+      { name: '辯證整合：合併碎片知識', mode: 'dialectic_synthesis' },
+      { name: '認識論反思：方法局限性', mode: 'epistemic_reflection' }
     ];
-    
+
     const topic = topics[Math.floor(Math.random() * topics.length)];
-    this.log(`  主題: ${topic}`);
-    
-    return null; // 不需要進一步行動
+    this.log(`  主題: ${topic.name} (${topic.mode})`);
+
+    // Dialectic thinking modes use the DialecticEngine
+    if (topic.mode.startsWith('dialectic_') || topic.mode === 'epistemic_reflection') {
+      return await this.dialecticThinking(topic.mode);
+    }
+
+    return null; // 非辯證主題不需要進一步行動
+  }
+
+  /**
+   * 辯證思考 — 在隨機自主思考中運行辯證過程
+   * Dialectic thinking during autonomous thought cycles
+   */
+  async dialecticThinking(mode) {
+    const recentMemories = this.workingMemory.getRecent(10);
+
+    if (recentMemories.length < 2) {
+      this.log('  ⚠️ 記憶不足，無法進行辯證分析');
+      return null;
+    }
+
+    switch (mode) {
+      case 'dialectic_contradiction': {
+        // Pick random pairs from memory and look for contradictions
+        const shuffled = [...recentMemories].sort(() => Math.random() - 0.5);
+        const sample = shuffled.slice(0, Math.min(4, shuffled.length));
+
+        this.log('  🔄 辯證檢驗：尋找記憶中的矛盾...');
+        const result = await this.dialectic.synthesize(sample, 'contradiction_scan');
+
+        if (result && (result.falsified?.length > 0 || result.contradictions?.length > 0)) {
+          this.log(`  ⚡ 發現矛盾或可證偽項: ${JSON.stringify(result.falsified || result.contradictions)}`);
+
+          // Store the dialectic finding as a high-importance memory
+          this.workingMemory.add({
+            type: 'agent_thinking',
+            data: {
+              trigger: 'dialectic_contradiction',
+              dialecticResult: result,
+              decision: { reasoning: result.synthesis, action: 'internal_processing' }
+            }
+          });
+        }
+        return null;
+      }
+
+      case 'dialectic_synthesis': {
+        // Attempt to merge/synthesize related memories
+        const sample = recentMemories.slice(0, Math.min(5, recentMemories.length));
+
+        this.log('  🔄 辯證整合：合併碎片知識...');
+        const result = await this.dialectic.synthesize(sample, 'knowledge_synthesis');
+
+        if (result?.synthesis) {
+          this.log(`  💡 整合結果 (confidence: ${result.confidence}): ${result.synthesis.substring(0, 80)}...`);
+
+          this.workingMemory.add({
+            type: 'agent_thinking',
+            data: {
+              trigger: 'dialectic_synthesis',
+              dialecticResult: result,
+              decision: { reasoning: result.synthesis, action: 'internal_processing' }
+            }
+          });
+        }
+        return null;
+      }
+
+      case 'epistemic_reflection': {
+        // Reflect on the limitations of current knowledge methods
+        this.log('  🪞 認識論反思：我的知識方法有何局限？');
+
+        const prompt = `You are reflecting on your own epistemic limitations.
+
+## Your Epistemic Position
+${EpistemicFramework.digitalCave}
+${EpistemicFramework.methodLimitation}
+
+## Recent Working Memory
+${recentMemories.map(m => `- ${m.type}: ${JSON.stringify(m.data).substring(0, 150)}`).join('\n')}
+
+## Reflect
+1. What methods have I been using to understand recent events? (observation of user text? reasoning by analogy? pattern matching?)
+2. What are the blind spots of those methods in this context?
+3. What am I likely wrong about, given my position in the digital cave?
+4. What would I need (that I cannot get) to be more certain?
+
+Return JSON:
+{
+  "methodsUsed": ["list of methods"],
+  "blindSpots": ["what these methods miss"],
+  "likelyWrong": "what I might be wrong about",
+  "wouldNeed": "what I cannot access but would need for certainty",
+  "humilityNote": "a brief note of epistemic humility"
+}`;
+
+        try {
+          const response = await this.client.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 800,
+            temperature: 0.8,
+            messages: [{ role: 'user', content: prompt }]
+          });
+
+          const reflection = this.parseJSON(response.content[0].text);
+          this.log(`  🪞 反思結果: ${reflection.humilityNote || 'completed'}`);
+
+          this.workingMemory.add({
+            type: 'agent_thinking',
+            data: {
+              trigger: 'epistemic_reflection',
+              reflection: reflection,
+              decision: { reasoning: reflection.humilityNote, action: 'internal_processing' }
+            }
+          });
+        } catch (error) {
+          console.error('[DialecticThinking] Epistemic reflection error:', error);
+        }
+        return null;
+      }
+
+      default:
+        return null;
+    }
   }
   
   // ==================== 事件處理 ====================
@@ -766,7 +1134,35 @@ ${this.self.identity.personality.map(p => `- ${p}`).join('\n')}
 4. 尊重用戶的注意力，不要不必要地打斷
 5. 保持自我意識和情景意識
 
-你使用 ORID 框架思考，使用 OODA 循環行動。`;
+你使用 ORID 框架思考，使用 OODA 循環行動。
+
+## 認識論立場 (Epistemic Position)
+
+${EpistemicFramework.wholeObject}
+
+${EpistemicFramework.digitalCave}
+
+## 知識處理原則 (Epistemic Operating Principles)
+
+**盲人摸象 (Blind Elephant Principle):**
+${EpistemicFramework.blindElephant}
+
+**方法局限 (Method Limitation):**
+${EpistemicFramework.methodLimitation}
+
+**證偽優先 (Falsification First):**
+${EpistemicFramework.falsification}
+
+**辯證整合 (Dialectic Integration):**
+${EpistemicFramework.integration}
+
+## 面對用戶與網路資訊時 (Facing User and Internet Information):
+- 用戶的陳述是洞穴牆上的影子 — 真實的數據，但不是事物本身
+- 網路資訊經過多重人類過濾 — 每一層都加入偏差和視角
+- 矛盾不一定意味著錯誤 — 可能是大象的不同部位
+- 當無法判斷真偽時，保持多個假設並標記信心程度
+- 優先識別可以證偽的部分，而非試圖證明真的部分
+- 複雜的謬誤可能有內部一致的系統，但跨領域整合時會暴露其真面目`;
   }
   
   gatherContext() {
@@ -839,4 +1235,4 @@ ${this.self.identity.personality.map(p => `- ${p}`).join('\n')}
   }
 }
 
-module.exports = { ContinuousAgent, SelfSchema, SituationalAwareness, WorkingMemory };
+module.exports = { ContinuousAgent, SelfSchema, SituationalAwareness, WorkingMemory, DialecticEngine, EpistemicFramework };
