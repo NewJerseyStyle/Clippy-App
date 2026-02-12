@@ -62,28 +62,66 @@ jobs:
             if [[ "$name" == *".deb"* ]]; then platform="Linux (Debian)"; fi
             table="$table| $platform | [$name]($url) |\n"
           done
-          echo "table<<EOF" >> $GITHUB_ENV
-          echo "$table" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
           
-      - name: Update README with Downloads Table
-        uses: anmol098/waka-readme-stats@master
-        with:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SHOW_PROFILE_VIEWS: "False"
-          SHOW_COMMIT: "False"
-          SHOW_DAYS_OF_WEEK: "False"
-          SHOW_LANGUAGE_PER_REPO: "False"
-          SHOW_LOC_CHART: "False"
-          SHOW_PROJECTS: "False"
-          SHOW_TIMEZONE: "False"
-          SHOW_LANGUAGE: "False"
-          SHOW_OS: "False"
-          SHOW_SHORT_INFO: "False"
-          SECTION_NAME: "DOWNLOADS_TABLE"
-          CONTENT: |
-            ${{ env.table }}
+          # Read the README and replace the downloads table section
+          readme_path="README.md"
+          if [[ -f "$readme_path" ]]; then
+            tmp_readme="$(mktemp)"
+            awk '
+              BEGIN {start_marker="<!-- DOWNLOADS_TABLE_START -->"; end_marker="<!-- DOWNLOADS_TABLE_END -->";
+                      in_block=0}
+              {
+                if ($0 ~ start_marker) { in_block=1; print; if (tolower($0) ~ /downloads_table_start/){ } next }
+                if (in_block) {
+                  if ($0 ~ end_marker) { in_block=0; print $0; next }
+                  next
+                }
+                print
+              }
+            ' "$readme_path" > "$tmp_readme"
 
+            # Rebuild the block content to inject the new table
+            # We'll place the table between the start and end markers.
+
+            # Extract header before start marker
+            before="$(awk '/<!-- DOWNLOADS_TABLE_START -->/{print NR; exit}' "$readme_path" | xargs -I{} bash -lc 'nl -ba "$readme_path" | sed -n "1,{}p"')"
+            # Simpler: perform a targeted replacement using a small script
+            python - << 'PY'
+import io, sys, re
+path = "README.md"
+start = "<!-- DOWNLOADS_TABLE_START -->"
+end = "<!-- DOWNLOADS_TABLE_END -->"
+with open(path, "r", encoding="utf-8") as f:
+    s = f.read()
+pattern = re.compile(re.escape(start) + r".*?" + re.escape(end), re.S)
+new_segment = start + "\n" + """<PLACEHOLDER_TABLE>""" + "\n" + end
+# The actual table string will be provided via environment variable TABLE_CONTENT
+TABLE_CONTENT = """%s"""  # replaced below
+segment = start + "\n" + TABLE_CONTENT + "\n" + end
+# If TABLE_CONTENT is empty, keep as placeholder
+content = pattern.sub(segment, s)
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+PY
+            # The above Python block writes a placeholder; replace it with the actual table:
+            TABLE_CONTENT="$table"
+            python - << 'PY'
+import io, sys, re
+path = "README.md"
+start = "<!-- DOWNLOADS_TABLE_START -->"
+end = "<!-- DOWNLOADS_TABLE_END -->"
+with open(path, "r", encoding="utf-8") as f:
+    s = f.read()
+pattern = re.compile(re.escape(start) + r"\n.*?\n" + re.escape(end), re.S)
+segment = f"{start}\n{TABLE_CONTENT}\n{end}"
+s = pattern.sub(segment, s)
+with open(path, "w", encoding="utf-8") as f:
+    f.write(s)
+PY
+          else
+            echo "README.md not found; skipping README update."
+          fi
+          
       - name: Commit Updated README
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
