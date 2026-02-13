@@ -11,7 +11,7 @@ class QwenEmbedding {
   constructor(options = {}) {
     this.options = {
       modelId: options.modelId || 'onnx-community/Qwen3-Embedding-0.6B-ONNX',
-      dtype: options.dtype || 'q4',  // 'fp32', 'fp16', 'q8', 'q4'
+      dtype: options.dtype || 'q8',  // 'fp32', 'fp16', 'q8', 'q4'
       verbose: options.verbose || false,
       useOpenAI: options.useOpenAI || false,
       openaiApiKey: options.openaiApiKey || null,
