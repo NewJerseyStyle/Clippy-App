@@ -8,7 +8,6 @@
 <body>
 
   <form id="settings-form">
-    <h1>Office Assistant</h1>
 
     <!-- ============ Connection ============ -->
     <fieldset class="section">
@@ -29,9 +28,9 @@
         <label for="model">Model</label>
         <input type="text" id="model" name="model">
         <p class="hint">
-          Ollama: <code>llama2</code>, <code>mistral</code>
+          Ollama: <code>qwen3</code>, <code>glm-4.7-flash</code>
           &mdash;
-          Groq: <code>mixtral-8x7b-32768</code>, <code>llama2-70b-4096</code>
+          Groq: <code>compound</code>, <code>meta-llama/llama-4-scout-17b-16e-instruct</code>
         </p>
       </div>
     </fieldset>
@@ -39,6 +38,22 @@
     <!-- ============ Behavior ============ -->
     <fieldset class="section">
       <legend>Behavior</legend>
+
+      <div class="field">
+        <label for="character">Character</label>
+        <select id="character" name="character">
+          <option value="Bonzi">Bonzi</option>
+          <option value="Clippy">Clippy</option>
+          <option value="F1">F1</option>
+          <option value="Genie">Genie</option>
+          <option value="Genius">Genius</option>
+          <option value="Links">Links</option>
+          <option value="Merlin">Merlin</option>
+          <option value="Peedy">Peedy</option>
+          <option value="Rocky">Rocky</option>
+          <option value="Rover">Rover</option>
+        </select>
+      </div>
 
       <label class="check">
         <input type="checkbox" id="eliza-mode" name="eliza-mode">
@@ -171,6 +186,23 @@
           </div>
         </fieldset>
       </div>
+    </fieldset>
+
+    <!-- ============ Extensions ============ -->
+    <fieldset class="section" id="extensions-section" style="display: none;">
+      <legend>Extensions</legend>
+
+      <fieldset class="inner-fieldset">
+        <legend>MCP Servers</legend>
+        <p class="hint">Add external services via Model Context Protocol for web search, code execution, and more.</p>
+        <div id="general-mcp-server-list"></div>
+        <div class="mcp-add-row">
+          <input type="text" id="general-mcp-new-name" placeholder="Name">
+          <input type="text" id="general-mcp-new-url" placeholder="http://localhost:3000">
+          <input type="text" id="general-mcp-new-desc" placeholder="Description">
+          <button type="button" id="general-mcp-add-btn" class="btn btn-small">Add</button>
+        </div>
+      </fieldset>
     </fieldset>
 
     <!-- ============ Model Benchmark ============ -->

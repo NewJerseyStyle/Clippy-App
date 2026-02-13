@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat History</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, 'Segoe UI', Tahoma, sans-serif;
+      font-size: 13px;
+      background: #ece9d8;
+      color: #222;
+    }
+    .message {
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border-radius: 4px;
+    }
+    .user { background: #e3f2fd; border: 1px solid #bbdefb; }
+    .clippy { background: #ffc; border: 1px solid #eed; }
+    .role {
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #003399;
+    }
+    .time { font-size: 10px; color: #999; margin-left: 6px; }
+    .message p { margin: 4px 0 0; line-height: 1.5; }
+    .empty {
+      color: #888;
+      font-style: italic;
+      text-align: center;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+  <div id="history"></div>
+  <script>
+    const Store = require('electron-store');
+    const store = new Store();
+    const history = store.get('chat-history', []);
+    const container = document.getElementById('history');
+
+    if (history.length === 0) {
+      container.innerHTML = '<p class="empty">No chat history yet.</p>';
+    } else {
+      history.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message ' + (msg.role === 'user' ? 'user' : 'clippy');
+
+        const roleSpan = document.createElement('span');
+        roleSpan.className = 'role';
+        roleSpan.textContent = msg.role === 'user' ? 'You' : 'Clippy';
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'time';
+        timeSpan.textContent = msg.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
+
+        const p = document.createElement('p');
+        p.textContent = msg.content;
+
+        div.appendChild(roleSpan);
+        div.appendChild(timeSpan);
+        div.appendChild(p);
+        container.appendChild(div);
+      });
+
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  </script>
+</body>
+</html>

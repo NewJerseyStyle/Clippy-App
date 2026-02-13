@@ -8,6 +8,7 @@ const apiKey = document.getElementById('api-key');
 const model = document.getElementById('model');
 const elizaMode = document.getElementById('eliza-mode');
 const enableAnimations = document.getElementById('enable-animations');
+const character = document.getElementById('character');
 const checkForUpdatesBtn = document.getElementById('check-for-updates');
 const irobotMode = document.getElementById('irobot-mode');
 const irobotWarningModal = document.getElementById('irobot-warning');
@@ -39,12 +40,18 @@ const symbolicSwipl = document.getElementById('symbolic-swipl');
 const mcpServerList = document.getElementById('mcp-server-list');
 const mcpAddBtn = document.getElementById('mcp-add-btn');
 
+// Extensions elements
+const extensionsSection = document.getElementById('extensions-section');
+const generalMcpServerList = document.getElementById('general-mcp-server-list');
+const generalMcpAddBtn = document.getElementById('general-mcp-add-btn');
+
 // Load saved settings
 apiEndpoint.value = store.get('api-endpoint', '');
 apiKey.value = store.get('api-key', '');
 model.value = store.get('model', '');
 elizaMode.checked = store.get('eliza-mode', false);
 enableAnimations.checked = store.get('enable-animations', false);
+character.value = store.get('character', 'Clippy');
 if (irobotMode) irobotMode.checked = store.get('irobot-mode', false);
 
 // Load memory settings
@@ -66,6 +73,7 @@ symbolicSwipl.checked = store.get('symbolic-swipl', false);
 
 // MCP servers state
 let mcpServers = store.get('symbolic-mcp-servers', []);
+let generalMcpServers = store.get('mcp-servers', []);
 
 function renderMcpServers() {
   mcpServerList.innerHTML = '';
@@ -119,6 +127,46 @@ mcpAddBtn.addEventListener('click', () => {
   descInput.value = '';
 });
 
+// General MCP servers
+function renderGeneralMcpServers() {
+  generalMcpServerList.innerHTML = '';
+  generalMcpServers.forEach((server, index) => {
+    const item = document.createElement('div');
+    item.className = 'mcp-server-item';
+    item.innerHTML = `
+      <span class="mcp-name">${escapeHtml(server.name)}</span>
+      <span class="mcp-url">${escapeHtml(server.url)}</span>
+      <span class="mcp-desc">${escapeHtml(server.description || '')}</span>
+      <button type="button" class="btn-remove" data-index="${index}">Remove</button>
+    `;
+    generalMcpServerList.appendChild(item);
+  });
+  generalMcpServerList.querySelectorAll('.btn-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.dataset.index, 10);
+      generalMcpServers.splice(idx, 1);
+      renderGeneralMcpServers();
+    });
+  });
+}
+
+renderGeneralMcpServers();
+
+generalMcpAddBtn.addEventListener('click', () => {
+  const nameInput = document.getElementById('general-mcp-new-name');
+  const urlInput = document.getElementById('general-mcp-new-url');
+  const descInput = document.getElementById('general-mcp-new-desc');
+  const name = nameInput.value.trim();
+  const url = urlInput.value.trim();
+  const description = descInput.value.trim();
+  if (!name || !url) return;
+  generalMcpServers.push({ name, url, description });
+  renderGeneralMcpServers();
+  nameInput.value = '';
+  urlInput.value = '';
+  descInput.value = '';
+});
+
 function updateMemoryOptionsVisibility() {
   if (intelligentMemory.checked) {
     memoryOptions.style.display = 'block';
@@ -165,6 +213,7 @@ function updateModeDependencies() {
     if (!canIrobot && irobotMode.checked) irobotMode.checked = false;
   }
 
+  extensionsSection.style.display = hasEndpoint ? 'block' : 'none';
   updateBenchmarkVisibility();
 }
 
@@ -211,6 +260,7 @@ settingsForm.addEventListener('submit', (event) => {
   store.set('model', model.value);
   store.set('eliza-mode', elizaMode.checked);
   store.set('enable-animations', enableAnimations.checked);
+  store.set('character', character.value);
   if (irobotMode) store.set('irobot-mode', irobotMode.checked);
 
   // Save memory settings
@@ -230,6 +280,7 @@ settingsForm.addEventListener('submit', (event) => {
   store.set('symbolic-z3', symbolicZ3.checked);
   store.set('symbolic-swipl', symbolicSwipl.checked);
   store.set('symbolic-mcp-servers', mcpServers);
+  store.set('mcp-servers', generalMcpServers);
 
   ipcRenderer.send('settings-updated', store.store);
   window.close();

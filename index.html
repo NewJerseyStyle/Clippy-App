@@ -3,14 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <title>Clippy</title>
-  <link rel="stylesheet" type="text/css" href="https://NewJerseyStyle.github.io/clippyjs/assets/clippy.css">
+  <link rel="stylesheet" type="text/css" href="clippyjs/assets/clippy.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="clippy"></div>
 
-  <script src="https://unpkg.com/jquery@3.2.1"></script>
-  <script src="https://NewJerseyStyle.github.io/clippyjs/demo/clippy.js"></script>
+  <div id="chat-input">
+    <div class="chat-balloon">
+      <p class="chat-prompt">What would you like to say to Clippy?</p>
+      <input type="text" id="chat-text" placeholder="Type here...">
+    </div>
+  </div>
+
+  <script>window.jQuery = window.$ = require('jquery');</script>
+  <script src="clippyjs/demo/clippy.js"></script>
+  <script>window.CLIPPY_CDN = 'clippyjs/assets/agents/';</script>
   <script src="renderer.js"></script>
 </body>
 </html>

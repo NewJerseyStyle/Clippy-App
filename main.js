@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen, powerMonitor } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
@@ -19,6 +19,10 @@ let memoryStatus = 'idle';
 let learningInterval = null;
 let continuousAgent = null;
 let symbolicReasoning = null;
+let chatHistoryWindow = null;
+let autoHideInterval = null;
+let autoHidden = false;
+let currentCharacter = store.get('character', 'Clippy');
 
 async function initializeMemory() {
   if (memory) return;
@@ -123,10 +127,10 @@ function createMainWindow() {
   const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
 
   mainWindow = new BrowserWindow({
-    width: 350,
-    height: 400,
-    x: screenW - 350,
-    y: screenH - 400,
+    width: 500,
+    height: 500,
+    x: screenW - 500 - 80,
+    y: screenH - 500 - 40,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -141,6 +145,7 @@ function createMainWindow() {
 
   mainWindow.loadFile('index.html');
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -196,7 +201,15 @@ app.on('ready', async () => {
 
   tray = new Tray(path.join(__dirname, 'assets/icon.png'));
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show/Hide Clippy', click: () => { mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show(); } },
+    { label: 'Show/Hide Clippy', click: () => {
+      if (mainWindow.isVisible()) {
+        mainWindow.webContents.send('hide-with-animation');
+      } else {
+        mainWindow.show();
+        mainWindow.webContents.send('show-agent');
+        autoHidden = false;
+      }
+    }},
     { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
     { label: 'Check for Updates', click: () => { checkForUpdates(); } },
     { label: 'Quit', click: () => { app.quit(); } }
@@ -205,9 +218,27 @@ app.on('ready', async () => {
   tray.setContextMenu(contextMenu);
   tray.on('click', () => {
     if (mainWindow) {
-      mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+      if (mainWindow.isVisible()) {
+        mainWindow.webContents.send('hide-with-animation');
+      } else {
+        mainWindow.show();
+        mainWindow.webContents.send('show-agent');
+        autoHidden = false;
+      }
     }
   });
+
+  // Auto-hide after 5 minutes of system idle
+  autoHideInterval = setInterval(() => {
+    if (!mainWindow || !mainWindow.isVisible()) return;
+    const idleTime = powerMonitor.getSystemIdleTime();
+    if (idleTime > 300 && !autoHidden) {
+      autoHidden = true;
+      mainWindow.webContents.send('hide-with-animation');
+    } else if (idleTime < 10) {
+      autoHidden = false;
+    }
+  }, 30000);
 });
 
 app.on('window-all-closed', () => {
@@ -215,6 +246,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', async () => {
+  if (autoHideInterval) clearInterval(autoHideInterval);
   stopIRobotMode();
   if (symbolicReasoning) {
     await symbolicReasoning.dispose();
@@ -231,11 +263,62 @@ app.on('activate', () => {
   }
 });
 
+ipcMain.on('show-context-menu', () => {
+  const menu = Menu.buildFromTemplate([
+    { label: 'Chat History', click: () => { createChatHistoryWindow(); } },
+    { type: 'separator' },
+    { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
+    { label: 'Check for Updates', click: () => { checkForUpdates(); } },
+    { type: 'separator' },
+    { label: 'Hide Clippy', click: () => { if (mainWindow) mainWindow.webContents.send('hide-with-animation'); } },
+    { label: 'Quit', click: () => { app.quit(); } }
+  ]);
+  menu.popup({ window: mainWindow });
+});
+
+function createChatHistoryWindow() {
+  if (chatHistoryWindow) {
+    chatHistoryWindow.focus();
+    return;
+  }
+  chatHistoryWindow = new BrowserWindow({
+    width: 420,
+    height: 500,
+    autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+  chatHistoryWindow.removeMenu();
+  chatHistoryWindow.loadFile('chat-history.html');
+  chatHistoryWindow.on('closed', () => {
+    chatHistoryWindow = null;
+  });
+}
+
+ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+  if (mainWindow) {
+    mainWindow.setIgnoreMouseEvents(ignore, options || {});
+  }
+});
+
+ipcMain.on('hide-window', () => {
+  if (mainWindow) mainWindow.hide();
+});
+
 ipcMain.on('check-for-updates', () => {
   checkForUpdates();
 });
 
 ipcMain.on('settings-updated', async (event, settings) => {
+  // Reload main window if character changed
+  const newCharacter = settings['character'] || 'Clippy';
+  if (newCharacter !== currentCharacter && mainWindow) {
+    currentCharacter = newCharacter;
+    mainWindow.reload();
+  }
+
   if (settings['intelligent-memory']) {
     await initializeMemory();
     startBackgroundLearning();

@@ -25,7 +25,8 @@
     "axios": "^1.6.8",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.1.7",
-    "elizabot": "^0.0.3"
+    "elizabot": "^0.0.3",
+    "jquery": "^3.2.1"
   },
   "build": {
     "appId": "com.example.clippy-electron",
