@@ -5,6 +5,8 @@
 **Leaderboard Space:** `https://huggingface.co/spaces/npc0/clippy-irobot-bench`
 **Dataset Repo:** `https://huggingface.co/datasets/npc0/clippy-irobot-bench-dataset`
 
+> Consider make use of Humanity's Last Exam, Vending Bench 2, tau2-bench
+
 ---
 
 ## Architecture
