@@ -119,3 +119,110 @@ button:hover {
   text-decoration: none;
   cursor: pointer;
 }
+
+/* Symbolic Reasoning section */
+.section-desc {
+  font-size: 0.85em;
+  color: #666;
+  margin: 4px 0 12px;
+}
+
+#symbolic-options {
+  display: none;
+  margin-left: 20px;
+  padding-left: 12px;
+  border-left: 3px solid #e0e0e0;
+}
+
+#symbolic-options.visible {
+  display: block;
+}
+
+fieldset {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 15px;
+}
+
+fieldset legend {
+  font-weight: bold;
+  padding: 0 6px;
+  font-size: 0.95em;
+}
+
+fieldset label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: normal;
+}
+
+fieldset small {
+  color: #888;
+}
+
+/* MCP server list */
+.mcp-server-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.mcp-server-item .mcp-name {
+  font-weight: bold;
+  min-width: 80px;
+}
+
+.mcp-server-item .mcp-url {
+  color: #555;
+  font-size: 0.85em;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-server-item .mcp-desc {
+  color: #888;
+  font-size: 0.8em;
+}
+
+.btn-remove {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 0.8em;
+}
+
+.btn-remove:hover {
+  background: #c82333;
+}
+
+.mcp-add-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.mcp-add-row input {
+  flex: 1;
+  min-width: 80px;
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 0.85em;
+}
+
+#symbolic-openai-base-url,
+#symbolic-openai-api-key,
+#symbolic-openai-model {
+  width: 100%;
+  box-sizing: border-box;
+}

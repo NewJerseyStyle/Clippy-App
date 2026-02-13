@@ -4,7 +4,7 @@
  * 這個文件展示如何將所有組件整合在一起
  */
 
-const lancedb = require('vectordb');
+const lancedb = require('@lancedb/lancedb');
 const { QwenEmbedding } = require('./qwen_embedding_llamacpp');
 const path = require('path');
 const fs = require('fs').promises;
@@ -19,7 +19,10 @@ class HierarchicalRAGComplete {
       maxTokensPerItem: options.maxTokensPerItem || 512,
       gpuLayers: options.gpuLayers || 0,
       threads: options.threads || 4,
-      verbose: options.verbose || false
+      verbose: options.verbose || false,
+      embeddingProvider: options.embeddingProvider || 'local',
+      openaiApiKey: options.openaiApiKey || null,
+      openaiApiBaseUrl: options.openaiApiBaseUrl || 'https://api.openai.com/v1',
     };
 
     this.db = null;
@@ -47,7 +50,10 @@ class HierarchicalRAGComplete {
       modelPath: this.options.modelPath,
       gpuLayers: this.options.gpuLayers,
       threads: this.options.threads,
-      verbose: this.options.verbose
+      verbose: this.options.verbose,
+      useOpenAI: this.options.embeddingProvider === 'openai',
+      openaiApiKey: this.options.openaiApiKey,
+      openaiApiBaseUrl: this.options.openaiApiBaseUrl,
     });
     await this.embedder.initialize();
 
@@ -261,10 +267,10 @@ class HierarchicalRAGComplete {
 
     // 從數據庫查詢
     const results = await this.table
-      .search(new Array(this.embedder.getModelInfo().embeddingLength).fill(0))
+      .query()
       .where(`id = '${nodeId}'`)
       .limit(1)
-      .execute();
+      .toArray();
     
     if (results.length > 0) {
       this.cacheNode(results[0]);
@@ -292,10 +298,10 @@ class HierarchicalRAGComplete {
     }
 
     const results = await this.table
-      .search(queryEmbedding)
+      .vectorSearch(queryEmbedding)
       .where(whereClause)
       .limit(topK)
-      .execute();
+      .toArray();
 
     // 更新訪問統計
     for (const result of results) {
@@ -411,10 +417,10 @@ class HierarchicalRAGComplete {
 
     for (let layer = 0; layer < this.options.maxLayers; layer++) {
       const layerNodes = await this.table
-        .search(new Array(this.embedder.getModelInfo().embeddingLength).fill(0))
+        .query()
         .where(`layer = ${layer}`)
         .limit(100000)
-        .execute();
+        .toArray();
 
       const count = layerNodes.length;
       const theoreticalMax = layer === 0 ? 1 : Math.pow(10, layer);

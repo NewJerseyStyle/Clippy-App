@@ -1,6 +1,6 @@
 {
   "name": "clippy-electron",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "Clippy as a desktop app",
   "main": "main.js",
   "scripts": {
@@ -13,13 +13,18 @@
     "electron-builder": "^26.7.0"
   },
   "optionalDependencies": {
-    "dmg-license": "^1.0.10"
+    "dmg-license": "^1.0.10",
+    "algebrite": "^1.4.0",
+    "z3-solver": "^4.13.0",
+    "swipl-wasm": "^3.6.0"
   },
   "dependencies": {
     "axios": "^1.6.8",
     "elizabot": "^0.0.3",
     "electron-store": "^8.1.0",
-    "electron-updater": "^6.1.7"
+    "electron-updater": "^6.1.7",
+    "@lancedb/lancedb": "^0.5.0",
+    "node-llama-cpp": "^3.15.1"
   },
   "build": {
     "appId": "com.example.clippy-electron",
@@ -30,3 +35,4 @@
     }]
   }
 }
+
