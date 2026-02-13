@@ -5,8 +5,11 @@ const { autoUpdater } = require('electron-updater');
 const { HierarchicalRAGComplete } = require('./rag-system/rag_complete_integration.js');
 const { ContinuousAgent } = require('./rag-system/continuous_agent.js');
 const { SymbolicReasoningManager } = require('./rag-system/symbolic_reasoning.js');
+const { IRobotBenchmark, RECOMMENDED_MODELS } = require('./rag-system/benchmark.js');
+const { LeaderboardClient, buildModelWarning } = require('./rag-system/leaderboard_client.js');
 
 const store = new Store();
+const leaderboardClient = new LeaderboardClient({ verbose: true });
 
 let tray = null;
 let mainWindow = null;
@@ -275,6 +278,63 @@ ipcMain.handle('search-memory', async (event, query) => {
 ipcMain.on('user-message', (event, message) => {
   if (continuousAgent) {
     continuousAgent.onUserMessage(message);
+  }
+});
+
+// ==================== Benchmark IPC ====================
+
+ipcMain.on('check-model-leaderboard', async (event, modelName) => {
+  try {
+    const result = await leaderboardClient.checkModel(modelName);
+    const message = buildModelWarning(modelName, result, RECOMMENDED_MODELS);
+    event.sender.send('model-leaderboard-result', {
+      found: result.found,
+      record: result.record || null,
+      message,
+      error: result.error || null
+    });
+  } catch (error) {
+    event.sender.send('model-leaderboard-result', {
+      found: false,
+      record: null,
+      message: `Could not reach leaderboard: ${error.message}\n\nFor best results, we recommend: DeepSeek V3.2, GPT-5.2, Claude Sonnet 4.5, or GLM-4.7.`,
+      error: error.message
+    });
+  }
+});
+
+ipcMain.on('run-benchmark', async (event, config) => {
+  try {
+    // Try to download external dataset (skip if not available)
+    const dataset = await leaderboardClient.downloadDataset();
+
+    const benchmark = new IRobotBenchmark({
+      apiEndpoint: config.apiEndpoint,
+      apiKey: config.apiKey,
+      model: config.model,
+      externalDataset: dataset,
+      verbose: true
+    });
+
+    let categoriesDone = 0;
+    benchmark.on('progress', (progress) => {
+      if (progress.status === 'done') categoriesDone++;
+      event.sender.send('benchmark-progress', {
+        ...progress,
+        categoriesDone
+      });
+    });
+
+    const results = await benchmark.runAll();
+
+    // Upload results to leaderboard
+    const uploadResult = await leaderboardClient.uploadResults(results);
+    console.log('Benchmark upload:', uploadResult.message);
+
+    event.sender.send('benchmark-complete', results);
+  } catch (error) {
+    console.error('Benchmark error:', error);
+    event.sender.send('benchmark-error', error.message);
   }
 });
 

@@ -226,3 +226,101 @@ fieldset small {
   width: 100%;
   box-sizing: border-box;
 }
+
+/* Benchmark section */
+.benchmark-status {
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.benchmark-status.status-ok {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.benchmark-status.status-warn {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+}
+
+.benchmark-status.status-error {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+.benchmark-status.status-info {
+  background: #d1ecf1;
+  border: 1px solid #bee5eb;
+  color: #0c5460;
+}
+
+.benchmark-progress-bar {
+  width: 100%;
+  height: 20px;
+  background: #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.benchmark-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff, #28a745);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+#benchmark-results-table {
+  width: 100%;
+  margin: 8px 0;
+}
+
+#benchmark-results-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+#benchmark-results-table th,
+#benchmark-results-table td {
+  padding: 6px 10px;
+  border: 1px solid #dee2e6;
+  text-align: left;
+}
+
+#benchmark-results-table th {
+  background: #f8f9fa;
+  font-weight: bold;
+}
+
+#benchmark-overall {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-top: 10px;
+  padding: 8px;
+  text-align: center;
+  border-radius: 6px;
+}
+
+#benchmark-overall.score-high {
+  background: #d4edda;
+  color: #155724;
+}
+
+#benchmark-overall.score-mid {
+  background: #fff3cd;
+  color: #856404;
+}
+
+#benchmark-overall.score-low {
+  background: #f8d7da;
+  color: #721c24;
+}

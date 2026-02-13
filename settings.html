@@ -151,6 +151,33 @@
       </fieldset>
     </div>
 
+    <hr>
+
+    <div id="benchmark-section" style="display: none;">
+      <h2>Model Benchmark</h2>
+      <p class="section-desc">Test whether your selected model is capable enough for i, Robot mode. Results are uploaded to the <a href="https://huggingface.co/spaces/npc0/clippy-irobot-bench" target="_blank">community leaderboard</a>.</p>
+
+      <div id="benchmark-model-status" class="benchmark-status"></div>
+
+      <div class="form-group">
+        <button type="button" id="check-leaderboard-btn" class="btn-small">Check Leaderboard</button>
+        <button type="button" id="run-benchmark-btn" class="btn-small">Run Benchmark</button>
+      </div>
+
+      <div id="benchmark-progress" style="display: none;">
+        <div class="benchmark-progress-bar">
+          <div class="benchmark-progress-fill" id="benchmark-fill"></div>
+        </div>
+        <div id="benchmark-progress-text" class="section-desc"></div>
+      </div>
+
+      <div id="benchmark-results" style="display: none;">
+        <h3>Results</h3>
+        <div id="benchmark-results-table"></div>
+        <div id="benchmark-overall"></div>
+      </div>
+    </div>
+
     <button type="submit">Save</button>
   </form>
 

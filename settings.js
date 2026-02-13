@@ -204,6 +204,154 @@ settingsForm.addEventListener('submit', (event) => {
   window.close();
 });
 
+// ==================== Benchmark ====================
+
+const benchmarkSection = document.getElementById('benchmark-section');
+const benchmarkModelStatus = document.getElementById('benchmark-model-status');
+const checkLeaderboardBtn = document.getElementById('check-leaderboard-btn');
+const runBenchmarkBtn = document.getElementById('run-benchmark-btn');
+const benchmarkProgress = document.getElementById('benchmark-progress');
+const benchmarkFill = document.getElementById('benchmark-fill');
+const benchmarkProgressText = document.getElementById('benchmark-progress-text');
+const benchmarkResultsDiv = document.getElementById('benchmark-results');
+const benchmarkResultsTable = document.getElementById('benchmark-results-table');
+const benchmarkOverall = document.getElementById('benchmark-overall');
+
+// Show benchmark section when i,Robot mode is on and API is configured
+function updateBenchmarkVisibility() {
+  const hasApi = apiEndpoint.value.trim() && apiKey.value.trim() && model.value.trim();
+  const irobotOn = irobotMode && irobotMode.checked;
+  benchmarkSection.style.display = (hasApi || irobotOn) ? 'block' : 'none';
+}
+
+// Listen for changes that affect benchmark visibility
+if (irobotMode) irobotMode.addEventListener('change', updateBenchmarkVisibility);
+apiEndpoint.addEventListener('input', updateBenchmarkVisibility);
+apiKey.addEventListener('input', updateBenchmarkVisibility);
+model.addEventListener('input', updateBenchmarkVisibility);
+updateBenchmarkVisibility();
+
+// Auto-check leaderboard when model changes (debounced)
+let modelCheckTimeout = null;
+model.addEventListener('input', () => {
+  clearTimeout(modelCheckTimeout);
+  modelCheckTimeout = setTimeout(() => {
+    const modelName = model.value.trim();
+    if (modelName && apiEndpoint.value.trim()) {
+      ipcRenderer.send('check-model-leaderboard', modelName);
+    }
+  }, 800);
+});
+
+// Check leaderboard button
+checkLeaderboardBtn.addEventListener('click', () => {
+  const modelName = model.value.trim();
+  if (!modelName) {
+    benchmarkModelStatus.className = 'benchmark-status status-warn';
+    benchmarkModelStatus.textContent = 'Please enter a model name first.';
+    return;
+  }
+  benchmarkModelStatus.className = 'benchmark-status status-info';
+  benchmarkModelStatus.textContent = 'Checking leaderboard...';
+  ipcRenderer.send('check-model-leaderboard', modelName);
+});
+
+// Run benchmark button
+runBenchmarkBtn.addEventListener('click', () => {
+  const endpoint = apiEndpoint.value.trim();
+  const key = apiKey.value.trim();
+  const modelName = model.value.trim();
+
+  if (!endpoint || !key || !modelName) {
+    benchmarkModelStatus.className = 'benchmark-status status-warn';
+    benchmarkModelStatus.textContent = 'Please fill in API Endpoint, API Key, and Model to run the benchmark.';
+    return;
+  }
+
+  runBenchmarkBtn.disabled = true;
+  benchmarkProgress.style.display = 'block';
+  benchmarkResultsDiv.style.display = 'none';
+  benchmarkFill.style.width = '0%';
+  benchmarkProgressText.textContent = 'Starting benchmark...';
+
+  ipcRenderer.send('run-benchmark', { apiEndpoint: endpoint, apiKey: key, model: modelName });
+});
+
+// Leaderboard check result
+ipcRenderer.on('model-leaderboard-result', (event, data) => {
+  benchmarkModelStatus.textContent = data.message;
+  if (data.found && data.record?.overall >= 60) {
+    benchmarkModelStatus.className = 'benchmark-status status-ok';
+  } else if (data.found && data.record?.overall < 60) {
+    benchmarkModelStatus.className = 'benchmark-status status-warn';
+  } else if (data.error) {
+    benchmarkModelStatus.className = 'benchmark-status status-info';
+  } else {
+    benchmarkModelStatus.className = 'benchmark-status status-warn';
+  }
+});
+
+// Benchmark progress updates
+ipcRenderer.on('benchmark-progress', (event, data) => {
+  const totalCategories = 8;
+  const categoriesDone = data.categoriesDone || 0;
+  const pct = Math.round((categoriesDone / totalCategories) * 100);
+  benchmarkFill.style.width = pct + '%';
+  benchmarkProgressText.textContent = `${data.category}: ${data.status} ${data.score !== undefined ? '(' + data.score + '/100)' : ''}`;
+});
+
+// Benchmark complete
+ipcRenderer.on('benchmark-complete', (event, results) => {
+  runBenchmarkBtn.disabled = false;
+  benchmarkProgress.style.display = 'none';
+  benchmarkResultsDiv.style.display = 'block';
+
+  // Build results table
+  const categoryLabels = {
+    memory_maintenance: 'Memory Maintenance',
+    self_consciousness: 'Self-Consciousness',
+    meaningful_response: 'Meaningful Response',
+    complex_problem: 'Complex Problem',
+    memory_building: 'Memory Building',
+    knowledge_production: 'Knowledge Production',
+    skill_application: 'Skill Application',
+    checkpoint_handling: 'Checkpoint Handling'
+  };
+
+  let tableHtml = '<table><tr><th>Category</th><th>Score</th><th>Passed</th></tr>';
+  for (const [cat, label] of Object.entries(categoryLabels)) {
+    const catResult = results.categories[cat];
+    if (catResult) {
+      const scoreColor = catResult.score >= 60 ? '#155724' : catResult.score >= 40 ? '#856404' : '#721c24';
+      tableHtml += `<tr>
+        <td>${label}</td>
+        <td style="color:${scoreColor};font-weight:bold">${catResult.score}/100</td>
+        <td>${catResult.passed}/${catResult.count}</td>
+      </tr>`;
+    }
+  }
+  tableHtml += '</table>';
+  benchmarkResultsTable.innerHTML = tableHtml;
+
+  // Overall score
+  benchmarkOverall.textContent = `Overall Score: ${results.overall}/100`;
+  if (results.overall >= 60) {
+    benchmarkOverall.className = 'score-high';
+  } else if (results.overall >= 40) {
+    benchmarkOverall.className = 'score-mid';
+  } else {
+    benchmarkOverall.className = 'score-low';
+  }
+});
+
+// Benchmark error
+ipcRenderer.on('benchmark-error', (event, error) => {
+  runBenchmarkBtn.disabled = false;
+  benchmarkProgress.style.display = 'none';
+  benchmarkModelStatus.className = 'benchmark-status status-error';
+  benchmarkModelStatus.textContent = `Benchmark failed: ${error}`;
+});
+
 // Check for updates
 checkForUpdatesBtn.addEventListener('click', () => {
   ipcRenderer.send('check-for-updates');
