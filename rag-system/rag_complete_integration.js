@@ -19,7 +19,10 @@ class HierarchicalRAGComplete {
       maxTokensPerItem: options.maxTokensPerItem || 512,
       gpuLayers: options.gpuLayers || 0,
       threads: options.threads || 4,
-      verbose: options.verbose || false
+      verbose: options.verbose || false,
+      embeddingProvider: options.embeddingProvider || 'local',
+      openaiApiKey: options.openaiApiKey || null,
+      openaiApiBaseUrl: options.openaiApiBaseUrl || 'https://api.openai.com/v1',
     };
 
     this.db = null;
@@ -47,7 +50,10 @@ class HierarchicalRAGComplete {
       modelPath: this.options.modelPath,
       gpuLayers: this.options.gpuLayers,
       threads: this.options.threads,
-      verbose: this.options.verbose
+      verbose: this.options.verbose,
+      useOpenAI: this.options.embeddingProvider === 'openai',
+      openaiApiKey: this.options.openaiApiKey,
+      openaiApiBaseUrl: this.options.openaiApiBaseUrl,
     });
     await this.embedder.initialize();
 

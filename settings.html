@@ -47,6 +47,55 @@
 
     <hr>
 
+    <h2>Intelligent Memory <small>(optional)</small></h2>
+    <p class="section-desc">Enable long-term memory for Clippy. This allows Clippy to remember conversations and learn over time.</p>
+
+    <div class="form-group">
+      <label for="intelligent-memory">
+        <input type="checkbox" id="intelligent-memory" name="intelligent-memory">
+        Enable Intelligent Memory
+      </label>
+    </div>
+
+    <div id="memory-options">
+      <div class="form-group">
+        <label for="embedding-provider">Embedding Provider:</label>
+        <select id="embedding-provider" name="embedding-provider">
+          <option value="local">Local Model</option>
+          <option value="openai">OpenAI API</option>
+        </select>
+      </div>
+
+      <div id="openai-embedding-options">
+        <div class="form-group">
+          <label for="openai-embedding-api-key">OpenAI API Key:</label>
+          <input type="password" id="openai-embedding-api-key" name="openai-embedding-api-key" placeholder="sk-...">
+        </div>
+
+        <div class="form-group">
+          <label for="openai-embedding-base-url">OpenAI Base URL:</label>
+          <input type="text" id="openai-embedding-base-url" name="openai-embedding-base-url" placeholder="https://api.openai.com/v1">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="memory-read-news">
+          <input type="checkbox" id="memory-read-news" name="memory-read-news">
+          Allow memory to read news (for background learning)
+        </label>
+      </div>
+
+      <div class="form-group">
+        <button type="button" id="clear-memory">Clear Memory</button>
+      </div>
+
+      <div class="form-group">
+        <label>Memory Status: <span id="memory-status">idle</span></label>
+      </div>
+    </div>
+
+    <hr>
+
     <h2>Symbolic Reasoning <small>(optional)</small></h2>
     <p class="section-desc">Enable formal reasoning engines for the i, Robot mode. Requires an OpenAI-compatible API for translating between natural language and formal notation.</p>
 

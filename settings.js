@@ -8,19 +8,26 @@ const apiKey = document.getElementById('api-key');
 const model = document.getElementById('model');
 const elizaMode = document.getElementById('eliza-mode');
 const checkForUpdatesBtn = document.getElementById('check-for-updates');
-const intelligentMemory = document.getElementById('intelligent-memory');
-const memoryReadNews = document.getElementById('memory-read-news');
-const clearMemoryBtn = document.getElementById('clear-memory');
-const memoryStatusText = document.querySelector('#memory-status .status-text');
-const memoryStatusAnimation = document.querySelector('#memory-status .status-animation');
 const irobotMode = document.getElementById('irobot-mode');
 const irobotWarningModal = document.getElementById('irobot-warning');
 const confirmIrobotBtn = document.getElementById('confirm-irobot-mode');
 const cancelIrobotBtn = document.getElementById('cancel-irobot-mode');
 const closeWarningBtn = document.querySelector('#irobot-warning .close-button');
 
+// Intelligent Memory elements
+const intelligentMemory = document.getElementById('intelligent-memory');
+const memoryOptions = document.getElementById('memory-options');
+const embeddingProvider = document.getElementById('embedding-provider');
+const openaiEmbeddingOptions = document.getElementById('openai-embedding-options');
+const openaiEmbeddingApiKey = document.getElementById('openai-embedding-api-key');
+const openaiEmbeddingBaseUrl = document.getElementById('openai-embedding-base-url');
+const memoryReadNews = document.getElementById('memory-read-news');
+const clearMemoryBtn = document.getElementById('clear-memory');
+const memoryStatus = document.getElementById('memory-status');
+
 // Symbolic Reasoning elements
 const symbolicEnabled = document.getElementById('symbolic-enabled');
+const symbolicOptions = document.getElementById('symbolic-options');
 const symbolicOpenaiBaseUrl = document.getElementById('symbolic-openai-base-url');
 const symbolicOpenaiApiKey = document.getElementById('symbolic-openai-api-key');
 const symbolicOpenaiModel = document.getElementById('symbolic-openai-model');
@@ -35,9 +42,14 @@ apiEndpoint.value = store.get('api-endpoint', '');
 apiKey.value = store.get('api-key', '');
 model.value = store.get('model', '');
 elizaMode.checked = store.get('eliza-mode', false);
-if (intelligentMemory) intelligentMemory.checked = store.get('intelligent-memory', false);
-if (memoryReadNews) memoryReadNews.checked = store.get('memory-read-news', false);
 if (irobotMode) irobotMode.checked = store.get('irobot-mode', false);
+
+// Load memory settings
+intelligentMemory.checked = store.get('intelligent-memory', false);
+embeddingProvider.value = store.get('embedding-provider', 'local');
+openaiEmbeddingApiKey.value = store.get('openai-embedding-api-key', '');
+openaiEmbeddingBaseUrl.value = store.get('openai-embedding-base-url', 'https://api.openai.com/v1');
+memoryReadNews.checked = store.get('memory-read-news', false);
 
 // Load symbolic reasoning settings
 symbolicEnabled.checked = store.get('symbolic-enabled', false);
@@ -103,13 +115,29 @@ mcpAddBtn.addEventListener('click', () => {
   descInput.value = '';
 });
 
+function updateMemoryOptionsVisibility() {
+  if (intelligentMemory.checked) {
+    memoryOptions.style.display = 'block';
+    if (embeddingProvider.value === 'openai') {
+      openaiEmbeddingOptions.style.display = 'block';
+    } else {
+      openaiEmbeddingOptions.style.display = 'none';
+    }
+  } else {
+    memoryOptions.style.display = 'none';
+  }
+}
+
+intelligentMemory.addEventListener('change', updateMemoryOptionsVisibility);
+embeddingProvider.addEventListener('change', updateMemoryOptionsVisibility);
+updateMemoryOptionsVisibility();
+
 // Toggle symbolic reasoning options visibility
 function updateSymbolicVisibility() {
-  const options = document.getElementById('symbolic-options');
   if (symbolicEnabled.checked) {
-    options.classList.add('visible');
+    symbolicOptions.style.display = 'block';
   } else {
-    options.classList.remove('visible');
+    symbolicOptions.style.display = 'none';
   }
 }
 symbolicEnabled.addEventListener('change', updateSymbolicVisibility);
@@ -153,9 +181,14 @@ settingsForm.addEventListener('submit', (event) => {
   store.set('api-key', apiKey.value);
   store.set('model', model.value);
   store.set('eliza-mode', elizaMode.checked);
-  if (intelligentMemory) store.set('intelligent-memory', intelligentMemory.checked);
-  if (memoryReadNews) store.set('memory-read-news', memoryReadNews.checked);
   if (irobotMode) store.set('irobot-mode', irobotMode.checked);
+
+  // Save memory settings
+  store.set('intelligent-memory', intelligentMemory.checked);
+  store.set('embedding-provider', embeddingProvider.value);
+  store.set('openai-embedding-api-key', openaiEmbeddingApiKey.value);
+  store.set('openai-embedding-base-url', openaiEmbeddingBaseUrl.value);
+  store.set('memory-read-news', memoryReadNews.checked);
 
   // Save symbolic reasoning settings
   store.set('symbolic-enabled', symbolicEnabled.checked);
@@ -183,13 +216,9 @@ clearMemoryBtn.addEventListener('click', () => {
 
 // Update memory status display
 ipcRenderer.on('memory-status-update', (event, status) => {
-  memoryStatusText.textContent = status;
-  if (status === 'learning') {
-    memoryStatusAnimation.style.backgroundColor = '#007bff';
-  } else {
-    memoryStatusAnimation.style.backgroundColor = '#ccc';
-  }
+  memoryStatus.textContent = status;
 });
 
 // Initial status update
 ipcRenderer.send('get-memory-status');
+

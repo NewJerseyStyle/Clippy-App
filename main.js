@@ -19,7 +19,11 @@ let symbolicReasoning = null;
 
 async function initializeMemory() {
   if (memory) return;
-  memory = new HierarchicalRAGComplete();
+  memory = new HierarchicalRAGComplete({
+    embeddingProvider: store.get('embedding-provider', 'local'),
+    openaiApiKey: store.get('openai-embedding-api-key', ''),
+    openaiApiBaseUrl: store.get('openai-embedding-base-url', 'https://api.openai.com/v1'),
+  });
   await memory.initialize();
   console.log('Memory initialized');
   if (store.get('intelligent-memory')) {
