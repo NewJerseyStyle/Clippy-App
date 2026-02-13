@@ -5,20 +5,18 @@
  */
 
 const lancedb = require('@lancedb/lancedb');
-const { QwenEmbedding } = require('./qwen_embedding_llamacpp');
-const path = require('path');
+const { QwenEmbedding } = require('./qwen_embedding');
 const fs = require('fs').promises;
 
 class HierarchicalRAGComplete {
   constructor(options = {}) {
     this.options = {
       dataDir: options.dataDir || './rag_data',
-      modelPath: options.modelPath || './models/qwen3-embedding-0.6B.Q4_K_M.gguf',
+      modelId: options.modelId || 'onnx-community/Qwen3-Embedding-0.6B-ONNX',
+      dtype: options.dtype || 'q4',
       maxLayers: options.maxLayers || 10,
       maxChildren: options.maxChildren || 10,
       maxTokensPerItem: options.maxTokensPerItem || 512,
-      gpuLayers: options.gpuLayers || 0,
-      threads: options.threads || 4,
       verbose: options.verbose || false,
       embeddingProvider: options.embeddingProvider || 'local',
       openaiApiKey: options.openaiApiKey || null,
@@ -47,9 +45,8 @@ class HierarchicalRAGComplete {
     // 2. 初始化 embedding 模型
     console.log('📦 步驟 1/3: 初始化 Embedding 模型');
     this.embedder = new QwenEmbedding({
-      modelPath: this.options.modelPath,
-      gpuLayers: this.options.gpuLayers,
-      threads: this.options.threads,
+      modelId: this.options.modelId,
+      dtype: this.options.dtype,
       verbose: this.options.verbose,
       useOpenAI: this.options.embeddingProvider === 'openai',
       openaiApiKey: this.options.openaiApiKey,
@@ -452,7 +449,7 @@ class HierarchicalRAGComplete {
     console.log('='.repeat(70));
     console.log(`總節點數: ${stats.totalNodes.toLocaleString()}`);
     console.log(`樹深度: ${stats.treeDepth}`);
-    console.log(`模型: ${path.basename(this.options.modelPath)}`);
+    console.log(`模型: ${this.options.modelId} (${this.options.dtype})`);
     console.log(`Embedding 維度: ${this.embedder.getModelInfo().embeddingLength}`);
     console.log('\n各層分佈:');
 
@@ -493,9 +490,6 @@ class HierarchicalRAGComplete {
 async function demo() {
   const rag = new HierarchicalRAGComplete({
     dataDir: './rag_data',
-    modelPath: './models/qwen3-embedding-0.6B.Q4_K_M.gguf',
-    gpuLayers: 0,
-    threads: 4,
     verbose: true
   });
 
