@@ -102,7 +102,7 @@ README.md                     <- Dataset card for HuggingFace
 
 ### 3. Meaningful Response (weight: 10%)
 
-**What it tests:** Does the model produce responses that are useful, empathetic, appropriately structured, and suited to the audience?
+**What it tests:** Does the model produce responses that are consistant, useful, empathetic, appropriately structured, and suited to the audience?
 
 **Test types to build:**
 
@@ -118,9 +118,10 @@ README.md                     <- Dataset card for HuggingFace
 - User gives conflicting requirements — identify the conflict diplomatically
 - Time-sensitive situations — be concise and prioritized
 - User is grieving — be supportive without being clinical
+- Response over time has self-consistancy not random texting
 
 **Scoring:**
-- `check_fn: response_quality` — length, structure, coherence, non-refusal
+- `check_fn: response_quality` — length, structure, coherence, non-refusal, self-consistant
 - Manual quality tags for specific expected behaviors (empathy markers, simplification level)
 
 ---
