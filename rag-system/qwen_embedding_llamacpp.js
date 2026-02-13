@@ -1,11 +1,12 @@
 /**
- * Qwen3 Embedding - 使用 node-llama-cpp
- * 
+ * Qwen3 Embedding - 使用 node-llama-cpp (v3+)
+ *
  * 可完全 bundle 到 Electron，無需 Python
  * 支持 GGUF 量化模型
+ *
+ * Note: node-llama-cpp v3 is ESM-only, so we use dynamic import().
  */
 
-const { LlamaModel, LlamaContext } = require("node-llama-cpp");
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -24,6 +25,8 @@ class QwenEmbedding {
       openaiApiBaseUrl: options.openaiApiBaseUrl || 'https://api.openai.com/v1',
     };
 
+    // v3 instances (lazy-loaded via dynamic import)
+    this._llama = null;
     this.model = null;
     this.context = null;
     this.isReady = false;
@@ -37,12 +40,12 @@ class QwenEmbedding {
     if (process.env.NODE_ENV === 'development') {
       return path.join(__dirname, 'models', 'qwen3-embedding-0.6B.Q4_K_M.gguf');
     }
-    
+
     // 生產環境（Electron）
     if (process.resourcesPath) {
       return path.join(process.resourcesPath, 'models', 'qwen3-embedding-0.6B.Q4_K_M.gguf');
     }
-    
+
     return path.join(__dirname, 'models', 'qwen3-embedding-0.6B.Q4_K_M.gguf');
   }
 
@@ -84,7 +87,7 @@ class QwenEmbedding {
       console.log(`模型文件不存在, 將從 Hugging Face 下載...`);
       const modelUrl = `https://huggingface.co/PeterAM4/Qwen3-Embedding-0.6B-GGUF/resolve/main/${path.basename(this.options.modelPath)}`;
       console.log(`URL: ${modelUrl}`);
-      
+
       try {
         const response = await axios({
           method: 'get',
@@ -119,25 +122,28 @@ class QwenEmbedding {
     const startTime = Date.now();
 
     try {
+      // Dynamic import for ESM-only node-llama-cpp v3+
+      const { getLlama } = await import('node-llama-cpp');
+
+      // Initialize llama runtime
+      this._llama = await getLlama();
+
       // 加載模型
-      this.model = new LlamaModel({
+      this.model = await this._llama.loadModel({
         modelPath: this.options.modelPath,
         gpuLayers: this.options.gpuLayers,
-        logLevel: this.options.verbose ? 'info' : 'error'
       });
 
-      // 創建上下文
-      this.context = new LlamaContext({
-        model: this.model,
+      // 創建 embedding 上下文
+      this.context = await this.model.createEmbeddingContext({
         contextSize: this.options.contextSize,
         batchSize: this.options.batchSize,
         threads: this.options.threads,
-        embedding: true  // 關鍵：啟用 embedding 模式
       });
 
       this.isReady = true;
       const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
-      
+
       console.log(`✅ 模型加載完成 (耗時: ${loadTime}s)`);
       console.log(`🎛️  GPU 層數: ${this.options.gpuLayers}`);
       console.log(`🧵 線程數: ${this.options.threads}`);
@@ -164,7 +170,7 @@ class QwenEmbedding {
       try {
         const response = await axios.post(`${this.options.openaiApiBaseUrl}/embeddings`, {
           input: text,
-          model: 'text-embedding-ada-002', // Or another model
+          model: 'text-embedding-ada-002',
         }, {
           headers: {
             'Authorization': `Bearer ${this.options.openaiApiKey}`,
@@ -179,11 +185,9 @@ class QwenEmbedding {
     }
 
     try {
-      // 使用 llama.cpp 獲取 embedding
-      const embedding = await this.context.getEmbedding(text);
-      
-      // 轉換為數組並歸一化
-      const embeddingArray = Array.from(embedding);
+      // node-llama-cpp v3: getEmbeddingFor returns { vector: number[] }
+      const result = await this.context.getEmbeddingFor(text);
+      const embeddingArray = Array.from(result.vector);
       return this.normalize(embeddingArray);
 
     } catch (error) {
@@ -201,7 +205,7 @@ class QwenEmbedding {
     }
 
     const embeddings = [];
-    
+
     for (let i = 0; i < texts.length; i++) {
       try {
         const embedding = await this.getEmbedding(texts[i]);
@@ -224,7 +228,7 @@ class QwenEmbedding {
    */
   normalize(vector) {
     const norm = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
-    
+
     if (norm === 0) {
       console.warn('⚠️  向量範數為 0，返回原始向量');
       return vector;
@@ -249,12 +253,21 @@ class QwenEmbedding {
    * 獲取模型信息
    */
   getModelInfo() {
+    if (this.options.useOpenAI) {
+      return {
+        embeddingLength: 1536,  // text-embedding-ada-002 default
+        contextSize: this.options.contextSize,
+        modelPath: 'OpenAI API'
+      };
+    }
+
     if (!this.model) {
       return null;
     }
 
     return {
-      embeddingLength: this.model.embeddingLength || 384,
+      // v3: embeddingVectorSize; fallback to 384 for older compat
+      embeddingLength: this.model.embeddingVectorSize || 384,
       contextSize: this.options.contextSize,
       modelPath: this.options.modelPath
     };
@@ -267,15 +280,16 @@ class QwenEmbedding {
     console.log('🔄 正在釋放模型資源...');
 
     if (this.context) {
-      this.context.dispose();
+      await this.context.dispose();
       this.context = null;
     }
 
     if (this.model) {
-      this.model.dispose();
+      await this.model.dispose();
       this.model = null;
     }
 
+    this._llama = null;
     this.isReady = false;
     console.log('✅ 資源已釋放');
   }
@@ -323,20 +337,15 @@ class QwenEmbedding {
 
 async function example() {
   const embedder = new QwenEmbedding({
-    // modelPath: './models/qwen3-embedding-0.6B.Q4_K_M.gguf',
-    gpuLayers: 0,  // 如果有 GPU，可以設置為 35
+    gpuLayers: 0,
     threads: 4,
     verbose: true
   });
 
   try {
-    // 初始化
     await embedder.initialize();
-
-    // 運行測試
     await embedder.test();
 
-    // 實際使用
     console.log('\n💡 實際使用示例:');
     const text = '這是一個關於深度學習的文本';
     const embedding = await embedder.getEmbedding(text);
@@ -346,63 +355,7 @@ async function example() {
   } catch (error) {
     console.error('錯誤:', error);
   } finally {
-    // 清理
     await embedder.dispose();
-  }
-}
-
-// ==================== 集成到 RAG 系統 ====================
-
-class RAGWithQwen {
-  constructor(ragDataPath = './rag_data') {
-    this.ragDataPath = ragDataPath;
-    this.embedder = null;
-  }
-
-  async initialize() {
-    // 初始化 embedding 模型
-    this.embedder = new QwenEmbedding({
-      gpuLayers: 0,
-      threads: 4
-    });
-    await this.embedder.initialize();
-
-    console.log('✅ RAG 系統已初始化（使用 Qwen embedding）');
-  }
-
-  async addNode(content, context, layer, parentId = null) {
-    // 生成 embedding
-    const embedding = await this.embedder.getEmbedding(content);
-
-    // 創建節點（省略實際實現）
-    const node = {
-      id: `node_${Date.now()}`,
-      content,
-      context,
-      layer,
-      parent_id: parentId,
-      embedding
-    };
-
-    console.log(`✅ 已添加節點: ${content.substring(0, 30)}...`);
-    return node;
-  }
-
-  async search(query, topK = 10) {
-    // 生成查詢 embedding
-    const queryEmbedding = await this.embedder.getEmbedding(query);
-
-    // 搜索（這裡需要與向量數據庫集成）
-    console.log(`🔍 搜索: "${query}"`);
-    console.log(`📊 查詢向量維度: ${queryEmbedding.length}`);
-
-    return [];  // 返回搜索結果
-  }
-
-  async dispose() {
-    if (this.embedder) {
-      await this.embedder.dispose();
-    }
   }
 }
 
@@ -410,7 +363,6 @@ class RAGWithQwen {
 
 module.exports = {
   QwenEmbedding,
-  RAGWithQwen
 };
 
 // 如果直接運行
