@@ -1,5 +1,4 @@
 const { ipcRenderer } = require('electron');
-const clippy = require('./clippyjs/dist/clippy.js');
 const ElizaBot = require('elizabot');
 const axios = require('axios');
 const Store = require('electron-store');
@@ -34,7 +33,7 @@ clippy.load('Clippy', (agent) => {
     }
   });
 
-  $('#clippy').on('click', async () => {
+  $('.clippy').on('click', async () => {
     const userInput = prompt("What would you like to say to Clippy?");
     if (userInput) {
       const irobotModeEnabled = store.get('irobot-mode', false);
