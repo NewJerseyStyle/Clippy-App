@@ -312,13 +312,6 @@ ipcMain.on('check-for-updates', () => {
 });
 
 ipcMain.on('settings-updated', async (event, settings) => {
-  // Reload main window if character changed
-  const newCharacter = settings['character'] || 'Clippy';
-  if (newCharacter !== currentCharacter && mainWindow) {
-    currentCharacter = newCharacter;
-    mainWindow.reload();
-  }
-
   if (settings['intelligent-memory']) {
     await initializeMemory();
     startBackgroundLearning();
@@ -337,6 +330,13 @@ ipcMain.on('settings-updated', async (event, settings) => {
     }
   } else {
     stopIRobotMode();
+  }
+
+  // Reload main window if character changed (must be last — reload drops IPC)
+  const newCharacter = settings['character'] || 'Clippy';
+  if (newCharacter !== currentCharacter && mainWindow) {
+    currentCharacter = newCharacter;
+    mainWindow.reload();
   }
 });
 
