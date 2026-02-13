@@ -92,28 +92,61 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Fetch release assets from API
+        id: fetch_assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Use gh api to reliably get assets (not dependent on action output)
+          assets_json=$(gh api "repos/${{ github.repository }}/releases/tags/v${PACKAGE_VERSION}" --jq '.assets')
+          echo "assets_json<<ASSETS_EOF" >> $GITHUB_ENV
+          echo "$assets_json" >> $GITHUB_ENV
+          echo "ASSETS_EOF" >> $GITHUB_ENV
+
       - name: Update landing page
         run: |
-          assets='${{ steps.create_release.outputs.assets }}'
-          html=""
-          echo "$assets" | jq -c '.[]' | while read -r asset; do
+          # Write download links to a temp file (avoids subshell variable scope loss)
+          links_file=$(mktemp)
+
+          echo '${{ env.assets_json }}' | jq -c '.[]' | while read -r asset; do
             url=$(echo "$asset" | jq -r '.browser_download_url')
             name=$(echo "$asset" | jq -r '.name')
             os="linux"
             if [[ "$name" == *".exe"* ]]; then os="windows"; fi
             if [[ "$name" == *".dmg"* ]]; then os="macos"; fi
-            html="$html<a href=\"$url\" class=\"download-button\" data-os=\"$os\">Download for $os</a>"
+            echo "    <a href=\"$url\" class=\"download-button\" data-os=\"$os\">Download for $os</a>" >> "$links_file"
           done
-          sed -i 's|<!-- DOWNLOAD_LINKS_PLACEHOLDER -->.*<!-- END_DOWNLOAD_LINKS_PLACEHOLDER -->|<!-- DOWNLOAD_LINKS_PLACEHOLDER -->\n'"$html"'\n<!-- END_DOWNLOAD_LINKS_PLACEHOLDER -->|' docs/index.html
+
+          echo "Generated download links:"
+          cat "$links_file"
+
+          # Replace multi-line block between placeholders using awk
+          awk '
+            /<!-- DOWNLOAD_LINKS_PLACEHOLDER -->/ {
+              print
+              while ((getline line < "'"$links_file"'") > 0) print line
+              skip = 1
+              next
+            }
+            /<!-- END_DOWNLOAD_LINKS_PLACEHOLDER -->/ {
+              skip = 0
+              print
+              next
+            }
+            !skip { print }
+          ' docs/index.html > docs/index.html.tmp && mv docs/index.html.tmp docs/index.html
+
+          echo "Updated docs/index.html:"
+          sed -n '/DOWNLOAD_LINKS_PLACEHOLDER/,/END_DOWNLOAD_LINKS_PLACEHOLDER/p' docs/index.html
 
       - name: Generate Downloads Table
-        id: downloads_table
         run: |
-          assets='${{ steps.create_release.outputs.assets }}'
+          # Write table rows to a temp file (avoids subshell variable scope loss)
           table_file=$(mktemp)
           echo "| Platform | Download |" > "$table_file"
           echo "|---|---|" >> "$table_file"
-          echo "$assets" | jq -c '.[]' | while read -r asset; do
+
+          echo '${{ env.assets_json }}' | jq -c '.[]' | while read -r asset; do
             url=$(echo "$asset" | jq -r '.browser_download_url')
             name=$(echo "$asset" | jq -r '.name')
             platform="Other"
@@ -124,12 +157,29 @@ jobs:
             echo "| $platform | [$name]($url) |" >> "$table_file"
           done
 
+          echo "Generated downloads table:"
+          cat "$table_file"
+
+          # Replace multi-line block between markers in README using awk
           readme_path="README.md"
           if [[ -f "$readme_path" ]]; then
-            sed -i '/<!-- DOWNLOADS_TABLE_START -->/,/<!-- DOWNLOADS_TABLE_END -->/{ /<!-- DOWNLOADS_TABLE_START -->/r '"$table_file"'
-            /<!-- DOWNLOADS_TABLE_START -->/!{ /<!-- DOWNLOADS_TABLE_END -->/!d
-            }
-            }' "$readme_path"
+            awk '
+              /<!-- DOWNLOADS_TABLE_START -->/ {
+                print
+                while ((getline line < "'"$table_file"'") > 0) print line
+                skip = 1
+                next
+              }
+              /<!-- DOWNLOADS_TABLE_END -->/ {
+                skip = 0
+                print
+                next
+              }
+              !skip { print }
+            ' "$readme_path" > "${readme_path}.tmp" && mv "${readme_path}.tmp" "$readme_path"
+
+            echo "Updated README.md downloads section:"
+            sed -n '/DOWNLOADS_TABLE_START/,/DOWNLOADS_TABLE_END/p' "$readme_path"
           fi
 
       - name: Commit Updated README and landing page
