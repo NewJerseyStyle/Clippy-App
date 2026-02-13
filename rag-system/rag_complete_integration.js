@@ -21,6 +21,7 @@ class HierarchicalRAGComplete {
       embeddingProvider: options.embeddingProvider || 'local',
       openaiApiKey: options.openaiApiKey || null,
       openaiApiBaseUrl: options.openaiApiBaseUrl || 'https://api.openai.com/v1',
+      openaiEmbeddingModel: options.openaiEmbeddingModel || 'text-embedding-ada-002',
     };
 
     this.db = null;
@@ -51,6 +52,7 @@ class HierarchicalRAGComplete {
       useOpenAI: this.options.embeddingProvider === 'openai',
       openaiApiKey: this.options.openaiApiKey,
       openaiApiBaseUrl: this.options.openaiApiBaseUrl,
+      openaiModel: this.options.openaiEmbeddingModel,
     });
     await this.embedder.initialize();
 

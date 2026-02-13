@@ -26,6 +26,7 @@ async function initializeMemory() {
     embeddingProvider: store.get('embedding-provider', 'local'),
     openaiApiKey: store.get('openai-embedding-api-key', ''),
     openaiApiBaseUrl: store.get('openai-embedding-base-url', 'https://api.openai.com/v1'),
+    openaiEmbeddingModel: store.get('openai-embedding-model', 'text-embedding-ada-002'),
   });
   await memory.initialize();
   console.log('Memory initialized');
@@ -122,10 +123,10 @@ function createMainWindow() {
   const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
 
   mainWindow = new BrowserWindow({
-    width: 300,
-    height: 300,
-    x: screenW - 300,
-    y: screenH - 300,
+    width: 350,
+    height: 400,
+    x: screenW - 350,
+    y: screenH - 400,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -139,6 +140,7 @@ function createMainWindow() {
   });
 
   mainWindow.loadFile('index.html');
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -147,14 +149,16 @@ function createMainWindow() {
 
 function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
-    width: 400,
-    height: 600, // Increased height for the new option
+    width: 480,
+    height: 720,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
+  settingsWindow.removeMenu();
   settingsWindow.loadFile('settings.html');
 
   settingsWindow.on('closed', () => {

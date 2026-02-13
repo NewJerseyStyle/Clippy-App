@@ -22,6 +22,7 @@ const embeddingProvider = document.getElementById('embedding-provider');
 const openaiEmbeddingOptions = document.getElementById('openai-embedding-options');
 const openaiEmbeddingApiKey = document.getElementById('openai-embedding-api-key');
 const openaiEmbeddingBaseUrl = document.getElementById('openai-embedding-base-url');
+const openaiEmbeddingModel = document.getElementById('openai-embedding-model');
 const memoryReadNews = document.getElementById('memory-read-news');
 const clearMemoryBtn = document.getElementById('clear-memory');
 const memoryStatus = document.getElementById('memory-status');
@@ -51,6 +52,7 @@ intelligentMemory.checked = store.get('intelligent-memory', false);
 embeddingProvider.value = store.get('embedding-provider', 'local');
 openaiEmbeddingApiKey.value = store.get('openai-embedding-api-key', '');
 openaiEmbeddingBaseUrl.value = store.get('openai-embedding-base-url', 'https://api.openai.com/v1');
+openaiEmbeddingModel.value = store.get('openai-embedding-model', 'text-embedding-ada-002');
 memoryReadNews.checked = store.get('memory-read-news', false);
 
 // Load symbolic reasoning settings
@@ -145,6 +147,31 @@ function updateSymbolicVisibility() {
 symbolicEnabled.addEventListener('change', updateSymbolicVisibility);
 updateSymbolicVisibility(); // Apply on load
 
+// Mode dependencies: API endpoint → eliza/memory/irobot, memory → irobot
+function updateModeDependencies() {
+  const hasEndpoint = apiEndpoint.value.trim() !== '';
+
+  elizaMode.disabled = !hasEndpoint;
+  intelligentMemory.disabled = !hasEndpoint;
+
+  if (!hasEndpoint && intelligentMemory.checked) {
+    intelligentMemory.checked = false;
+    updateMemoryOptionsVisibility();
+  }
+
+  const canIrobot = hasEndpoint && intelligentMemory.checked;
+  if (irobotMode) {
+    irobotMode.disabled = !canIrobot;
+    if (!canIrobot && irobotMode.checked) irobotMode.checked = false;
+  }
+
+  updateBenchmarkVisibility();
+}
+
+apiEndpoint.addEventListener('input', updateModeDependencies);
+intelligentMemory.addEventListener('change', updateModeDependencies);
+updateModeDependencies();
+
 // "I, Robot" Mode Warning
 if (irobotMode && irobotWarningModal) {
   irobotMode.addEventListener('change', (event) => {
@@ -191,6 +218,7 @@ settingsForm.addEventListener('submit', (event) => {
   store.set('embedding-provider', embeddingProvider.value);
   store.set('openai-embedding-api-key', openaiEmbeddingApiKey.value);
   store.set('openai-embedding-base-url', openaiEmbeddingBaseUrl.value);
+  store.set('openai-embedding-model', openaiEmbeddingModel.value);
   store.set('memory-read-news', memoryReadNews.checked);
 
   // Save symbolic reasoning settings

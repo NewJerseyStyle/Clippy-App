@@ -132,6 +132,11 @@ a:hover {
   line-height: 1.3;
 }
 
+.check input[type="checkbox"]:disabled ~ .check-label,
+.check input[type="checkbox"]:disabled ~ .check-desc {
+  color: #aaa;
+}
+
 /* ---- Hint text ---- */
 
 .hint {

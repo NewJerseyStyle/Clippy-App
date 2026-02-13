@@ -16,6 +16,7 @@ class QwenEmbedding {
       useOpenAI: options.useOpenAI || false,
       openaiApiKey: options.openaiApiKey || null,
       openaiApiBaseUrl: options.openaiApiBaseUrl || 'https://api.openai.com/v1',
+      openaiModel: options.openaiModel || 'text-embedding-ada-002',
     };
 
     this.extractor = null;
@@ -34,7 +35,14 @@ class QwenEmbedding {
         throw new Error('OpenAI API key is required when useOpenAI is true');
       }
       this.isReady = true;
-      console.log('[QwenEmbedding] OpenAI embedding ready');
+      try {
+        const testEmb = await this.getEmbedding('test');
+        this.embeddingDim = testEmb.length;
+      } catch (err) {
+        console.warn('[QwenEmbedding] Could not probe embedding dimension:', err.message);
+        this.embeddingDim = 1536;
+      }
+      console.log(`[QwenEmbedding] OpenAI embedding ready (model: ${this.options.openaiModel}, dim: ${this.embeddingDim})`);
       return;
     }
 
@@ -79,7 +87,7 @@ class QwenEmbedding {
       try {
         const response = await axios.post(`${this.options.openaiApiBaseUrl}/embeddings`, {
           input: text,
-          model: 'text-embedding-ada-002',
+          model: this.options.openaiModel,
         }, {
           headers: {
             'Authorization': `Bearer ${this.options.openaiApiKey}`,
@@ -145,8 +153,8 @@ class QwenEmbedding {
   getModelInfo() {
     if (this.options.useOpenAI) {
       return {
-        embeddingLength: 1536,
-        modelId: 'OpenAI API'
+        embeddingLength: this.embeddingDim || 1536,
+        modelId: this.options.openaiModel
       };
     }
 
