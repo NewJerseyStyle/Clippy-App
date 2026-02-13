@@ -1,3 +1,76 @@
-body {
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   background-color: transparent;
+}
+
+.clippy, .clippy *,
+.clippy-balloon, .clippy-balloon *,
+#chat-input, #chat-input * {
+  -webkit-app-region: no-drag;
+}
+
+#clippy {
+  display: none;
+}
+
+/* ---- Chat input balloon ---- */
+
+#chat-input {
+  display: none;
+  position: fixed;
+  bottom: 140px;
+  left: 10px;
+  z-index: 10001;
+}
+
+.chat-balloon {
+  background: #ffc;
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 10px;
+  width: 200px;
+  font-family: 'Microsoft Sans Serif', Tahoma, sans-serif;
+  font-size: 14px;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+  position: relative;
+}
+
+.chat-balloon::before {
+  content: '';
+  position: absolute;
+  bottom: -18px;
+  left: 29px;
+  border: 9px solid transparent;
+  border-top-color: #000;
+}
+
+.chat-balloon::after {
+  content: '';
+  position: absolute;
+  bottom: -16px;
+  left: 30px;
+  border: 8px solid transparent;
+  border-top-color: #ffc;
+}
+
+.chat-prompt {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: #333;
+}
+
+#chat-text {
+  width: 100%;
+  border: 1px solid #999;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+#chat-text:focus {
+  border-color: #333;
 }

@@ -1,164 +1,267 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Settings</title>
+  <title>Clippy &mdash; Settings</title>
   <link rel="stylesheet" href="settings.css">
 </head>
 <body>
-  <h1>Settings</h1>
 
   <form id="settings-form">
-    <div class="form-group">
-      <label for="api-endpoint">API Endpoint:</label>
-      <input type="text" id="api-endpoint" name="api-endpoint">
-    </div>
 
-    <div class="form-group">
-      <label for="api-key">API Key:</label>
-      <input type="text" id="api-key" name="api-key">
-    </div>
+    <!-- ============ Connection ============ -->
+    <fieldset class="section">
+      <legend>Connection</legend>
 
-    <div class="form-group">
-      <label for="model">Model:</label>
-      <input type="text" id="model" name="model">
-      <small>Suggested models:
-        <ul>
-          <li>Ollama: <code>llama2</code>, <code>mistral</code></li>
-          <li>Groq: <code>mixtral-8x7b-32768</code>, <code>llama2-70b-4096</code></li>
-        </ul>
-      </small>
-    </div>
+      <div class="field">
+        <label for="api-endpoint">API Endpoint</label>
+        <input type="text" id="api-endpoint" name="api-endpoint"
+               placeholder="http://localhost:11434/v1/chat/completions">
+      </div>
 
-    <div class="form-group">
-      <label for="eliza-mode">
-        <input type="checkbox" id="eliza-mode" name="eliza-mode">
-        Eliza Mode (show Eliza's response as a suggestion to the LLM)
-      </label>
-    </div>
+      <div class="field">
+        <label for="api-key">API Key</label>
+        <input type="text" id="api-key" name="api-key">
+      </div>
 
-    <div class="form-group">
-      <label for="enable-animations">
-        <input type="checkbox" id="enable-animations" name="enable-animations">
-        Enable Animations (suggests animations to the LLM)
-      </label>
-    </div>
+      <div class="field">
+        <label for="model">Model</label>
+        <input type="text" id="model" name="model">
+        <p class="hint">
+          Ollama: <code>qwen3</code>, <code>glm-4.7-flash</code>
+          &mdash;
+          Groq: <code>compound</code>, <code>meta-llama/llama-4-scout-17b-16e-instruct</code>
+        </p>
+      </div>
+    </fieldset>
 
-    <hr>
+    <!-- ============ Behavior ============ -->
+    <fieldset class="section">
+      <legend>Behavior</legend>
 
-    <h2>Intelligent Memory <small>(optional)</small></h2>
-    <p class="section-desc">Enable long-term memory for Clippy. This allows Clippy to remember conversations and learn over time.</p>
-
-    <div class="form-group">
-      <label for="intelligent-memory">
-        <input type="checkbox" id="intelligent-memory" name="intelligent-memory">
-        Enable Intelligent Memory
-      </label>
-    </div>
-
-    <div id="memory-options">
-      <div class="form-group">
-        <label for="embedding-provider">Embedding Provider:</label>
-        <select id="embedding-provider" name="embedding-provider">
-          <option value="local">Local Model</option>
-          <option value="openai">OpenAI API</option>
+      <div class="field">
+        <label for="character">Character</label>
+        <select id="character" name="character">
+          <option value="Bonzi">Bonzi</option>
+          <option value="Clippy">Clippy</option>
+          <option value="F1">F1</option>
+          <option value="Genie">Genie</option>
+          <option value="Genius">Genius</option>
+          <option value="Links">Links</option>
+          <option value="Merlin">Merlin</option>
+          <option value="Peedy">Peedy</option>
+          <option value="Rocky">Rocky</option>
+          <option value="Rover">Rover</option>
         </select>
       </div>
 
-      <div id="openai-embedding-options">
-        <div class="form-group">
-          <label for="openai-embedding-api-key">OpenAI API Key:</label>
-          <input type="password" id="openai-embedding-api-key" name="openai-embedding-api-key" placeholder="sk-...">
-        </div>
-
-        <div class="form-group">
-          <label for="openai-embedding-base-url">OpenAI Base URL:</label>
-          <input type="text" id="openai-embedding-base-url" name="openai-embedding-base-url" placeholder="https://api.openai.com/v1">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="memory-read-news">
-          <input type="checkbox" id="memory-read-news" name="memory-read-news">
-          Allow memory to read news (for background learning)
-        </label>
-      </div>
-
-      <div class="form-group">
-        <button type="button" id="clear-memory">Clear Memory</button>
-      </div>
-
-      <div class="form-group">
-        <label>Memory Status: <span id="memory-status">idle</span></label>
-      </div>
-    </div>
-
-    <hr>
-
-    <h2>Symbolic Reasoning <small>(optional)</small></h2>
-    <p class="section-desc">Enable formal reasoning engines for the i, Robot mode. Requires an OpenAI-compatible API for translating between natural language and formal notation.</p>
-
-    <div class="form-group">
-      <label for="symbolic-enabled">
-        <input type="checkbox" id="symbolic-enabled" name="symbolic-enabled">
-        Enable Symbolic Reasoning
+      <label class="check">
+        <input type="checkbox" id="eliza-mode" name="eliza-mode">
+        <span class="check-label">Eliza Mode</span>
+        <span class="check-desc">Show Eliza's response as a suggestion to the LLM</span>
       </label>
-    </div>
 
-    <div id="symbolic-options">
-      <div class="form-group">
-        <label for="symbolic-openai-base-url">OpenAI-compatible Base URL:</label>
-        <input type="text" id="symbolic-openai-base-url" name="symbolic-openai-base-url" placeholder="https://api.openai.com/v1">
-      </div>
+      <label class="check">
+        <input type="checkbox" id="enable-animations" name="enable-animations">
+        <span class="check-label">Enable Animations</span>
+        <span class="check-desc">Suggests animations to the LLM</span>
+      </label>
 
-      <div class="form-group">
-        <label for="symbolic-openai-api-key">OpenAI-compatible API Key:</label>
-        <input type="password" id="symbolic-openai-api-key" name="symbolic-openai-api-key" placeholder="sk-...">
-      </div>
+      <label class="check">
+        <input type="checkbox" id="irobot-mode" name="irobot-mode">
+        <span class="check-label">i, Robot Mode</span>
+        <span class="check-desc">Autonomous continuous agent with memory and reasoning</span>
+      </label>
+    </fieldset>
 
-      <div class="form-group">
-        <label for="symbolic-openai-model">Model:</label>
-        <input type="text" id="symbolic-openai-model" name="symbolic-openai-model" placeholder="gpt-4o-mini">
-      </div>
+    <!-- ============ Intelligent Memory ============ -->
+    <fieldset class="section">
+      <legend>Intelligent Memory</legend>
 
-      <fieldset class="form-group">
-        <legend>Reasoning Engines</legend>
-        <label>
-          <input type="checkbox" id="symbolic-algebrite" name="symbolic-algebrite">
-          Algebrite <small>— computer algebra (simplify, solve, calculus)</small>
+      <label class="check">
+        <input type="checkbox" id="intelligent-memory" name="intelligent-memory">
+        <span class="check-label">Enable Intelligent Memory</span>
+        <span class="check-desc">Long-term memory: Clippy remembers conversations and learns over time</span>
+      </label>
+
+      <div id="memory-options" class="sub-options">
+        <div class="field">
+          <label for="embedding-provider">Embedding Provider</label>
+          <select id="embedding-provider" name="embedding-provider">
+            <option value="local">Local Model</option>
+            <option value="openai">OpenAI API</option>
+          </select>
+        </div>
+
+        <div id="openai-embedding-options">
+          <div class="field">
+            <label for="openai-embedding-api-key">OpenAI API Key</label>
+            <input type="password" id="openai-embedding-api-key"
+                   name="openai-embedding-api-key" placeholder="sk-...">
+          </div>
+          <div class="field">
+            <label for="openai-embedding-base-url">OpenAI Base URL</label>
+            <input type="text" id="openai-embedding-base-url"
+                   name="openai-embedding-base-url"
+                   placeholder="https://api.openai.com/v1">
+          </div>
+          <div class="field">
+            <label for="openai-embedding-model">Embedding Model</label>
+            <input type="text" id="openai-embedding-model"
+                   name="openai-embedding-model"
+                   placeholder="text-embedding-ada-002">
+            <p class="hint">e.g. <code>text-embedding-ada-002</code>, <code>text-embedding-3-small</code>, <code>text-embedding-3-large</code></p>
+          </div>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" id="memory-read-news" name="memory-read-news">
+          <span class="check-label">Read News</span>
+          <span class="check-desc">Allow memory to read news for background learning</span>
         </label>
-        <label>
-          <input type="checkbox" id="symbolic-z3" name="symbolic-z3">
-          z3-solver <small>— SMT solving (logic, constraints, verification)</small>
-        </label>
-        <label>
-          <input type="checkbox" id="symbolic-swipl" name="symbolic-swipl">
-          swipl-wasm <small>— Prolog (rules, knowledge bases, unification)</small>
-        </label>
-      </fieldset>
 
-      <fieldset class="form-group">
+        <div class="field-row">
+          <button type="button" id="clear-memory" class="btn">Clear Memory</button>
+          <span class="status-inline">Status: <span id="memory-status">idle</span></span>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- ============ Symbolic Reasoning ============ -->
+    <fieldset class="section">
+      <legend>Symbolic Reasoning</legend>
+
+      <label class="check">
+        <input type="checkbox" id="symbolic-enabled" name="symbolic-enabled">
+        <span class="check-label">Enable Symbolic Reasoning</span>
+        <span class="check-desc">Formal reasoning engines for i, Robot mode (requires OpenAI-compatible API)</span>
+      </label>
+
+      <div id="symbolic-options" class="sub-options">
+        <div class="field">
+          <label for="symbolic-openai-base-url">OpenAI-compatible Base URL</label>
+          <input type="text" id="symbolic-openai-base-url"
+                 name="symbolic-openai-base-url"
+                 placeholder="https://api.openai.com/v1">
+        </div>
+        <div class="field">
+          <label for="symbolic-openai-api-key">OpenAI-compatible API Key</label>
+          <input type="password" id="symbolic-openai-api-key"
+                 name="symbolic-openai-api-key" placeholder="sk-...">
+        </div>
+        <div class="field">
+          <label for="symbolic-openai-model">Model</label>
+          <input type="text" id="symbolic-openai-model"
+                 name="symbolic-openai-model" placeholder="gpt-4o-mini">
+        </div>
+
+        <fieldset class="inner-fieldset">
+          <legend>Reasoning Engines</legend>
+          <label class="check">
+            <input type="checkbox" id="symbolic-algebrite" name="symbolic-algebrite">
+            <span class="check-label">Algebrite</span>
+            <span class="check-desc">Computer algebra: simplify, solve, calculus</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="symbolic-z3" name="symbolic-z3">
+            <span class="check-label">z3-solver</span>
+            <span class="check-desc">SMT solving: logic, constraints, verification</span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="symbolic-swipl" name="symbolic-swipl">
+            <span class="check-label">swipl-wasm</span>
+            <span class="check-desc">Prolog: rules, knowledge bases, unification</span>
+          </label>
+        </fieldset>
+
+        <fieldset class="inner-fieldset">
+          <legend>MCP Servers</legend>
+          <p class="hint">External reasoning services via Model Context Protocol.</p>
+          <div id="mcp-server-list"></div>
+          <div class="mcp-add-row">
+            <input type="text" id="mcp-new-name" placeholder="Name">
+            <input type="text" id="mcp-new-url" placeholder="http://localhost:3000">
+            <input type="text" id="mcp-new-desc" placeholder="Description">
+            <button type="button" id="mcp-add-btn" class="btn btn-small">Add</button>
+          </div>
+        </fieldset>
+      </div>
+    </fieldset>
+
+    <!-- ============ Extensions ============ -->
+    <fieldset class="section" id="extensions-section" style="display: none;">
+      <legend>Extensions</legend>
+
+      <fieldset class="inner-fieldset">
         <legend>MCP Servers</legend>
-        <p class="section-desc">Add external reasoning services via Model Context Protocol.</p>
-        <div id="mcp-server-list"></div>
+        <p class="hint">Add external services via Model Context Protocol for web search, code execution, and more.</p>
+        <div id="general-mcp-server-list"></div>
         <div class="mcp-add-row">
-          <input type="text" id="mcp-new-name" placeholder="Name">
-          <input type="text" id="mcp-new-url" placeholder="http://localhost:3000">
-          <input type="text" id="mcp-new-desc" placeholder="Description (optional)">
-          <button type="button" id="mcp-add-btn" class="btn-small">Add</button>
+          <input type="text" id="general-mcp-new-name" placeholder="Name">
+          <input type="text" id="general-mcp-new-url" placeholder="http://localhost:3000">
+          <input type="text" id="general-mcp-new-desc" placeholder="Description">
+          <button type="button" id="general-mcp-add-btn" class="btn btn-small">Add</button>
         </div>
       </fieldset>
-    </div>
+    </fieldset>
 
-    <button type="submit">Save</button>
+    <!-- ============ Model Benchmark ============ -->
+    <fieldset class="section" id="benchmark-section" style="display: none;">
+      <legend>Model Benchmark</legend>
+      <p class="hint">
+        Test model capability for i, Robot mode. Results upload to the
+        <a href="https://huggingface.co/spaces/npc0/clippy-irobot-bench"
+           target="_blank">community leaderboard</a>.
+      </p>
+
+      <div id="benchmark-model-status" class="benchmark-status"></div>
+
+      <div class="field-row">
+        <button type="button" id="check-leaderboard-btn" class="btn btn-small">Check Leaderboard</button>
+        <button type="button" id="run-benchmark-btn" class="btn btn-small">Run Benchmark</button>
+      </div>
+
+      <div id="benchmark-progress" style="display: none;">
+        <div class="benchmark-progress-bar">
+          <div class="benchmark-progress-fill" id="benchmark-fill"></div>
+        </div>
+        <p id="benchmark-progress-text" class="hint"></p>
+      </div>
+
+      <div id="benchmark-results" style="display: none;">
+        <h3>Results</h3>
+        <div id="benchmark-results-table"></div>
+        <div id="benchmark-overall"></div>
+      </div>
+    </fieldset>
+
+    <!-- ============ Actions ============ -->
+    <div class="actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
   </form>
 
-  <hr>
+  <!-- i, Robot Warning Modal -->
+  <div id="irobot-warning" class="modal">
+    <div class="modal-content">
+      <span class="close-button">&times;</span>
+      <h2>Warning: i, Robot Mode</h2>
+      <p>
+        This mode gives Clippy autonomous agency. The assistant will
+        continuously think, act, and learn on its own. Make sure you
+        have configured your API endpoint and memory settings.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="confirm-irobot-mode" class="btn btn-primary">Enable</button>
+        <button type="button" id="cancel-irobot-mode" class="btn">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-  <h2>Updates</h2>
-
-  <button id="check-for-updates">Check for Updates</button>
+  <!-- Updates -->
+  <div class="footer">
+    <button type="button" id="check-for-updates" class="btn">Check for Updates</button>
+  </div>
 
   <script src="settings.js"></script>
 </body>

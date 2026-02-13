@@ -1,12 +1,15 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen, powerMonitor } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const { autoUpdater } = require('electron-updater');
 const { HierarchicalRAGComplete } = require('./rag-system/rag_complete_integration.js');
 const { ContinuousAgent } = require('./rag-system/continuous_agent.js');
 const { SymbolicReasoningManager } = require('./rag-system/symbolic_reasoning.js');
+const { IRobotBenchmark, RECOMMENDED_MODELS } = require('./rag-system/benchmark.js');
+const { LeaderboardClient, buildModelWarning } = require('./rag-system/leaderboard_client.js');
 
 const store = new Store();
+const leaderboardClient = new LeaderboardClient({ verbose: true });
 
 let tray = null;
 let mainWindow = null;
@@ -16,6 +19,10 @@ let memoryStatus = 'idle';
 let learningInterval = null;
 let continuousAgent = null;
 let symbolicReasoning = null;
+let chatHistoryWindow = null;
+let autoHideInterval = null;
+let autoHidden = false;
+let currentCharacter = store.get('character', 'Clippy');
 
 async function initializeMemory() {
   if (memory) return;
@@ -23,6 +30,7 @@ async function initializeMemory() {
     embeddingProvider: store.get('embedding-provider', 'local'),
     openaiApiKey: store.get('openai-embedding-api-key', ''),
     openaiApiBaseUrl: store.get('openai-embedding-base-url', 'https://api.openai.com/v1'),
+    openaiEmbeddingModel: store.get('openai-embedding-model', 'text-embedding-ada-002'),
   });
   await memory.initialize();
   console.log('Memory initialized');
@@ -116,19 +124,28 @@ function stopIRobotMode() {
 }
 
 function createMainWindow() {
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workAreaSize;
+
   mainWindow = new BrowserWindow({
-    width: 300,
-    height: 300,
+    width: 500,
+    height: 500,
+    x: screenW - 500 - 80,
+    y: screenH - 500 - 40,
     frame: false,
     transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    hasShadow: false,
     webPreferences: {
       nodeIntegration: true,
-      contextIsolation: false,
-      preload: path.join(__dirname, 'preload.js')
+      contextIsolation: false
     }
   });
 
   mainWindow.loadFile('index.html');
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -137,14 +154,16 @@ function createMainWindow() {
 
 function createSettingsWindow() {
   settingsWindow = new BrowserWindow({
-    width: 400,
-    height: 600, // Increased height for the new option
+    width: 480,
+    height: 720,
+    autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false
     }
   });
 
+  settingsWindow.removeMenu();
   settingsWindow.loadFile('settings.html');
 
   settingsWindow.on('closed', () => {
@@ -182,22 +201,52 @@ app.on('ready', async () => {
 
   tray = new Tray(path.join(__dirname, 'assets/icon.png'));
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show/Hide Clippy', click: () => { mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show(); } },
+    { label: 'Show/Hide Clippy', click: () => {
+      if (mainWindow.isVisible()) {
+        mainWindow.webContents.send('hide-with-animation');
+      } else {
+        mainWindow.show();
+        mainWindow.webContents.send('show-agent');
+        autoHidden = false;
+      }
+    }},
     { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
     { label: 'Check for Updates', click: () => { checkForUpdates(); } },
     { label: 'Quit', click: () => { app.quit(); } }
   ]);
   tray.setToolTip('Clippy');
   tray.setContextMenu(contextMenu);
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.webContents.send('hide-with-animation');
+      } else {
+        mainWindow.show();
+        mainWindow.webContents.send('show-agent');
+        autoHidden = false;
+      }
+    }
+  });
+
+  // Auto-hide after 5 minutes of system idle
+  autoHideInterval = setInterval(() => {
+    if (!mainWindow || !mainWindow.isVisible()) return;
+    const idleTime = powerMonitor.getSystemIdleTime();
+    if (idleTime > 300 && !autoHidden) {
+      autoHidden = true;
+      mainWindow.webContents.send('hide-with-animation');
+    } else if (idleTime < 10) {
+      autoHidden = false;
+    }
+  }, 30000);
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  // Don't quit — app lives in tray
 });
 
 app.on('before-quit', async () => {
+  if (autoHideInterval) clearInterval(autoHideInterval);
   stopIRobotMode();
   if (symbolicReasoning) {
     await symbolicReasoning.dispose();
@@ -212,6 +261,50 @@ app.on('activate', () => {
   if (mainWindow === null) {
     createMainWindow();
   }
+});
+
+ipcMain.on('show-context-menu', () => {
+  const menu = Menu.buildFromTemplate([
+    { label: 'Chat History', click: () => { createChatHistoryWindow(); } },
+    { type: 'separator' },
+    { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
+    { label: 'Check for Updates', click: () => { checkForUpdates(); } },
+    { type: 'separator' },
+    { label: 'Hide Clippy', click: () => { if (mainWindow) mainWindow.webContents.send('hide-with-animation'); } },
+    { label: 'Quit', click: () => { app.quit(); } }
+  ]);
+  menu.popup({ window: mainWindow });
+});
+
+function createChatHistoryWindow() {
+  if (chatHistoryWindow) {
+    chatHistoryWindow.focus();
+    return;
+  }
+  chatHistoryWindow = new BrowserWindow({
+    width: 420,
+    height: 500,
+    autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  });
+  chatHistoryWindow.removeMenu();
+  chatHistoryWindow.loadFile('chat-history.html');
+  chatHistoryWindow.on('closed', () => {
+    chatHistoryWindow = null;
+  });
+}
+
+ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
+  if (mainWindow) {
+    mainWindow.setIgnoreMouseEvents(ignore, options || {});
+  }
+});
+
+ipcMain.on('hide-window', () => {
+  if (mainWindow) mainWindow.hide();
 });
 
 ipcMain.on('check-for-updates', () => {
@@ -237,6 +330,13 @@ ipcMain.on('settings-updated', async (event, settings) => {
     }
   } else {
     stopIRobotMode();
+  }
+
+  // Reload main window if character changed (must be last — reload drops IPC)
+  const newCharacter = settings['character'] || 'Clippy';
+  if (newCharacter !== currentCharacter && mainWindow) {
+    currentCharacter = newCharacter;
+    mainWindow.reload();
   }
 });
 
@@ -275,6 +375,63 @@ ipcMain.handle('search-memory', async (event, query) => {
 ipcMain.on('user-message', (event, message) => {
   if (continuousAgent) {
     continuousAgent.onUserMessage(message);
+  }
+});
+
+// ==================== Benchmark IPC ====================
+
+ipcMain.on('check-model-leaderboard', async (event, modelName) => {
+  try {
+    const result = await leaderboardClient.checkModel(modelName);
+    const message = buildModelWarning(modelName, result, RECOMMENDED_MODELS);
+    event.sender.send('model-leaderboard-result', {
+      found: result.found,
+      record: result.record || null,
+      message,
+      error: result.error || null
+    });
+  } catch (error) {
+    event.sender.send('model-leaderboard-result', {
+      found: false,
+      record: null,
+      message: `Could not reach leaderboard: ${error.message}\n\nFor best results, we recommend: DeepSeek V3.2, GPT-5.2, Claude Sonnet 4.5, or GLM-4.7.`,
+      error: error.message
+    });
+  }
+});
+
+ipcMain.on('run-benchmark', async (event, config) => {
+  try {
+    // Try to download external dataset (skip if not available)
+    const dataset = await leaderboardClient.downloadDataset();
+
+    const benchmark = new IRobotBenchmark({
+      apiEndpoint: config.apiEndpoint,
+      apiKey: config.apiKey,
+      model: config.model,
+      externalDataset: dataset,
+      verbose: true
+    });
+
+    let categoriesDone = 0;
+    benchmark.on('progress', (progress) => {
+      if (progress.status === 'done') categoriesDone++;
+      event.sender.send('benchmark-progress', {
+        ...progress,
+        categoriesDone
+      });
+    });
+
+    const results = await benchmark.runAll();
+
+    // Upload results to leaderboard
+    const uploadResult = await leaderboardClient.uploadResults(results);
+    console.log('Benchmark upload:', uploadResult.message);
+
+    event.sender.send('benchmark-complete', results);
+  } catch (error) {
+    console.error('Benchmark error:', error);
+    event.sender.send('benchmark-error', error.message);
   }
 });
 

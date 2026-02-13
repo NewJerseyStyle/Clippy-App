@@ -1,183 +1,273 @@
-body {
-  font-family: sans-serif;
-  padding: 20px;
+/* ============================================================
+   Clippy Settings — Classic Office Assistant Theme
+   International Typographic Style · Grid · Negative Space
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
 }
+
+body {
+  margin: 0;
+  padding: 16px;
+  font-family: Arial, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #222;
+  background: #ece9d8;
+}
+
+/* ---- Typography ---- */
 
 h1 {
-  margin-bottom: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #aca899;
+  letter-spacing: 0.02em;
 }
 
-.form-group {
-  margin-bottom: 15px;
+h2 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 8px;
 }
 
-.indented {
-  margin-left: 20px;
+h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 12px 0 6px;
 }
 
-
-label {
-  display: block;
-  margin-bottom: 5px;
+a {
+  color: #003399;
 }
 
-input[type="text"],
-input[type="checkbox"] {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+a:hover {
+  color: #0055cc;
 }
 
-button {
-  padding: 10px 15px;
-  border: none;
-  background-color: #007bff;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
+/* ---- Sections (fieldsets) ---- */
+
+.section {
+  border: 1px solid #aca899;
+  border-radius: 0;
+  padding: 12px 16px 16px;
+  margin: 0 0 12px;
+  background: transparent;
 }
 
-button:hover {
-  background-color: #0056b3;
-}
-
-#memory-status {
-  display: flex;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.status-animation {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background-color: #ccc;
-  margin-right: 8px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(0, 123, 255, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(0, 123, 255, 0);
-  }
-}
-
-.status-text {
-  font-style: italic;
-  color: #555;
-}
-
-#intelligent-memory-options, #irobot-mode-option {
-    display: none;
-}
-
-#intelligent-memory:checked ~ #intelligent-memory-options,
-#intelligent-memory:checked ~ #irobot-mode-option {
-    display: block;
-}
-
-/* Modal styles */
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  overflow: auto;
-  background-color: rgba(0,0,0,0.4);
-}
-
-.modal-content {
-  background-color: #fefefe;
-  margin: 15% auto;
-  padding: 20px;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 500px;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.close-button {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-}
-
-.close-button:hover,
-.close-button:focus {
-  color: black;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-/* Symbolic Reasoning section */
-.section-desc {
-  font-size: 0.85em;
-  color: #666;
-  margin: 4px 0 12px;
-}
-
-#symbolic-options {
-  display: none;
-  margin-left: 20px;
-  padding-left: 12px;
-  border-left: 3px solid #e0e0e0;
-}
-
-#symbolic-options.visible {
-  display: block;
-}
-
-fieldset {
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 15px;
-}
-
-fieldset legend {
-  font-weight: bold;
+.section > legend {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #003399;
   padding: 0 6px;
-  font-size: 0.95em;
 }
 
-fieldset label {
+/* ---- Form fields ---- */
+
+.field {
+  margin-bottom: 10px;
+}
+
+.field > label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 3px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.field input[type="text"],
+.field input[type="password"],
+.field select {
+  width: 100%;
+  padding: 3px 5px;
+  font-family: inherit;
+  font-size: 13px;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  background: #fff;
+}
+
+.field input:focus,
+.field select:focus {
+  outline: 1px dotted #000;
+  outline-offset: -1px;
+}
+
+/* ---- Checkboxes (classic grid layout) ---- */
+
+.check {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  grid-template-rows: auto auto;
+  gap: 0 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
   font-weight: normal;
 }
 
-fieldset small {
-  color: #888;
+.check input[type="checkbox"] {
+  grid-row: 1 / -1;
+  align-self: start;
+  margin-top: 2px;
+  width: 13px;
+  height: 13px;
+  accent-color: #003399;
 }
 
-/* MCP server list */
+.check-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.check-desc {
+  grid-column: 2;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.3;
+}
+
+.check input[type="checkbox"]:disabled ~ .check-label,
+.check input[type="checkbox"]:disabled ~ .check-desc {
+  color: #aaa;
+}
+
+/* ---- Hint text ---- */
+
+.hint {
+  font-size: 11px;
+  color: #666;
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+
+.hint code {
+  background: #d4d0c8;
+  padding: 0 3px;
+  font-size: 11px;
+}
+
+/* ---- Sub-options (collapsible) ---- */
+
+.sub-options {
+  display: none;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid #aca899;
+  margin-left: 4px;
+}
+
+/* ---- Inner fieldsets ---- */
+
+.inner-fieldset {
+  border: 1px solid #aca899;
+  border-radius: 0;
+  padding: 10px 12px 12px;
+  margin-bottom: 10px;
+}
+
+.inner-fieldset > legend {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+/* ---- Field row (inline elements) ---- */
+
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.status-inline {
+  font-size: 12px;
+  color: #555;
+  font-style: italic;
+}
+
+/* ---- Buttons ---- */
+
+.btn {
+  padding: 4px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  background: #ece9d8;
+  border: 2px solid;
+  border-color: #fff #808080 #808080 #fff;
+  cursor: pointer;
+  color: #222;
+}
+
+.btn:hover {
+  background: #d4d0c8;
+}
+
+.btn:active {
+  border-color: #808080 #fff #fff #808080;
+}
+
+.btn-primary {
+  background: #003399;
+  color: #fff;
+  border-color: #004499 #001a66 #001a66 #004499;
+}
+
+.btn-primary:hover {
+  background: #0044aa;
+}
+
+.btn-primary:active {
+  border-color: #001a66 #004499 #004499 #001a66;
+}
+
+.btn-small {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+/* ---- Actions bar ---- */
+
+.actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #aca899;
+  text-align: right;
+}
+
+/* ---- Footer ---- */
+
+.footer {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #aca899;
+}
+
+/* ---- MCP servers ---- */
+
 .mcp-server-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 4px 0;
+  border-bottom: 1px solid #d4d0c8;
+  font-size: 12px;
 }
 
 .mcp-server-item .mcp-name {
-  font-weight: bold;
-  min-width: 80px;
+  font-weight: 700;
+  min-width: 60px;
 }
 
 .mcp-server-item .mcp-url {
   color: #555;
-  font-size: 0.85em;
+  font-size: 11px;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,43 +276,198 @@ fieldset small {
 
 .mcp-server-item .mcp-desc {
   color: #888;
-  font-size: 0.8em;
+  font-size: 11px;
 }
 
 .btn-remove {
-  background: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 3px;
-  padding: 2px 8px;
+  background: #ece9d8;
+  color: #721c24;
+  border: 1px solid #808080;
+  padding: 1px 6px;
   cursor: pointer;
-  font-size: 0.8em;
+  font-size: 11px;
 }
 
 .btn-remove:hover {
-  background: #c82333;
+  background: #f8d7da;
 }
 
 .mcp-add-row {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
 }
 
 .mcp-add-row input {
   flex: 1;
-  min-width: 80px;
+  min-width: 60px;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: 12px;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
 }
 
-.btn-small {
-  padding: 6px 12px;
-  font-size: 0.85em;
+/* ---- Benchmark ---- */
+
+.benchmark-status {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+  border: 1px solid #aca899;
 }
 
-#symbolic-openai-base-url,
-#symbolic-openai-api-key,
-#symbolic-openai-model {
+.benchmark-status.status-ok {
+  background: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.benchmark-status.status-warn {
+  background: #fff3cd;
+  border-color: #ffc107;
+  color: #856404;
+}
+
+.benchmark-status.status-error {
+  background: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.benchmark-status.status-info {
+  background: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
+}
+
+.benchmark-progress-bar {
   width: 100%;
-  box-sizing: border-box;
+  height: 16px;
+  background: #d4d0c8;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  margin-bottom: 6px;
+}
+
+.benchmark-progress-fill {
+  height: 100%;
+  background: #003399;
+  width: 0%;
+  transition: width 0.3s;
+}
+
+#benchmark-results-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+#benchmark-results-table th,
+#benchmark-results-table td {
+  padding: 4px 8px;
+  border: 1px solid #aca899;
+  text-align: left;
+}
+
+#benchmark-results-table th {
+  background: #d4d0c8;
+  font-weight: 700;
+}
+
+#benchmark-overall {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 8px;
+  padding: 6px;
+  text-align: center;
+}
+
+#benchmark-overall.score-high {
+  background: #d4edda;
+  color: #155724;
+}
+
+#benchmark-overall.score-mid {
+  background: #fff3cd;
+  color: #856404;
+}
+
+#benchmark-overall.score-low {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* ---- Modal ---- */
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.modal-content {
+  background: #ece9d8;
+  border: 2px solid;
+  border-color: #fff #808080 #808080 #fff;
+  margin: 15% auto;
+  padding: 16px 20px;
+  width: 80%;
+  max-width: 400px;
+}
+
+.modal-content h2 {
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.modal-content p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.close-button {
+  float: right;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  color: #666;
+  line-height: 1;
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.close-button:hover {
+  color: #000;
+}
+
+/* ---- Scrollbar (classic) ---- */
+
+::-webkit-scrollbar {
+  width: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: #ece9d8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d0c8;
+  border: 2px solid;
+  border-color: #fff #808080 #808080 #fff;
 }

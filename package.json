@@ -1,6 +1,6 @@
 {
   "name": "clippy-electron",
-  "version": "1.1.2",
+  "version": "1.1.0",
   "description": "Clippy as a desktop app",
   "main": "main.js",
   "scripts": {
@@ -13,26 +13,29 @@
     "electron-builder": "^26.7.0"
   },
   "optionalDependencies": {
-    "dmg-license": "^1.0.10",
     "algebrite": "^1.4.0",
-    "z3-solver": "^4.13.0",
-    "swipl-wasm": "^3.6.0"
+    "dmg-license": "^1.0.10",
+    "swipl-wasm": "^3.6.0",
+    "z3-solver": "^4.13.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "@huggingface/transformers": "^3.4.0",
+    "@lancedb/lancedb": "^0.5.0",
     "axios": "^1.6.8",
-    "elizabot": "^0.0.3",
     "electron-store": "^8.1.0",
     "electron-updater": "^6.1.7",
-    "@lancedb/lancedb": "^0.5.0",
-    "node-llama-cpp": "^3.15.1"
+    "elizabot": "^0.0.3",
+    "jquery": "^3.2.1"
   },
   "build": {
     "appId": "com.example.clippy-electron",
-    "publish": [{
-      "provider": "github",
-      "owner": "NewJerseyStyle",
-      "repo": "Clippy-App"
-    }]
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "NewJerseyStyle",
+        "repo": "Clippy-App"
+      }
+    ]
   }
 }
-
