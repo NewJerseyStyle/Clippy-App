@@ -213,6 +213,7 @@ function updateModeDependencies() {
   elizaMode.disabled = !hasEndpoint;
   enableAnimations.disabled = !hasEndpoint;
   intelligentMemory.disabled = !hasEndpoint;
+  symbolicEnabled.disabled = !hasEndpoint;
 
   if (!hasEndpoint && enableAnimations.checked) {
     enableAnimations.checked = false;
