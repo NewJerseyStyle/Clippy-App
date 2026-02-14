@@ -1,6 +1,6 @@
 {
   "name": "clippy-electron",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Clippy as a desktop app",
   "main": "main.js",
   "scripts": {
@@ -39,5 +39,6 @@
     ]
   }
 }
+
 
 
