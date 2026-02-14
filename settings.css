@@ -569,3 +569,20 @@ a:hover {
   background: #f8d7da;
   color: #721c24;
 }
+
+.benchmark-cost-warning {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  color: #856404;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.benchmark-phase-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #003399;
+  margin: 0 0 4px;
+}

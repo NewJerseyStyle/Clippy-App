@@ -70,12 +70,24 @@ class LeaderboardClient {
         overall: results.overall,
         categories: {},
         timestamp: results.timestamp,
-        version: '1.0'
+        version: '2.0',
+        // External benchmark scores
+        external: {},
+        externalOverall: results.externalOverall || 0,
+        combinedOverall: results.combinedOverall || results.overall,
+        mindFlow: results.mindFlow || false,
       };
 
       // Flatten category scores
       for (const [cat, data] of Object.entries(results.categories)) {
         submission.categories[cat] = data.score;
+      }
+
+      // Flatten external benchmark scores
+      if (results.external) {
+        for (const [bench, data] of Object.entries(results.external)) {
+          submission.external[bench] = data.score || 0;
+        }
       }
 
       const data = await this._gradioCall('submit_result', [JSON.stringify(submission)]);

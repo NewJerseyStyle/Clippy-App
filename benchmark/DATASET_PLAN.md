@@ -316,3 +316,104 @@ Each checkpoint is a JSON file simulating a loaded memory state:
 - **Prompt template** for generating test cases: provide the category description + 2-3 examples → generate new test cases
 - **Quality check script**: validate JSON format, check for missing fields, verify expected_mentions are reasonable
 - **Dry run**: run each test case against a strong model to verify the scoring function works as intended
+
+---
+
+## External Benchmark Integration
+
+### Overview
+
+In addition to the 8 internal i,Robot categories, the benchmark integrates 4 external benchmarks to provide broader model evaluation. These run after the internal tests and contribute 30% to the combined score.
+
+### External Benchmarks
+
+| Benchmark | Source | Subset | Format |
+|-----------|--------|--------|--------|
+| **HLE** (Humanity's Last Exam) | `cais/hle` on HuggingFace | 100 questions | `{id, question, answer, answer_type, category}` |
+| **tau2-bench** | `HuggingFaceH4/tau2-bench` | 30 tasks | `{id, user_scenario, initial_state, evaluation_criteria, domain}` |
+| **ARC-AGI-2** | `fchollet/ARC-AGI` on GitHub | 20 puzzles (≤10x10 grids) | `{id, train, test, grid_size}` |
+| **Vending Bench 2** | Hand-authored | 10 scenarios | `{id, scenario, expected_action, expected_change, context, evaluation}` |
+
+### Dataset Download
+
+Datasets are downloaded by `benchmark/download_datasets.js` and stored in `benchmark/data/`:
+
+```
+benchmark/data/
+  hle.json
+  tau2.json
+  arc_agi2.json
+  vending2_stub.json
+  manifest.json       ← download metadata (timestamp, counts, fallback status)
+```
+
+Each downloader has a fallback stub with hand-authored test data, so benchmarks work even without internet access. Downloads are cached for 7 days.
+
+Run manually: `node benchmark/download_datasets.js`
+
+### Adapter Architecture
+
+Each external benchmark has an adapter class in `rag-system/external_benchmarks.js` that extends `ExternalBenchmarkRunner`:
+
+| Adapter | Scoring Method |
+|---------|---------------|
+| `HLEBenchmark` | Accuracy: exact match + keyword overlap fallback |
+| `Tau2Benchmark` | Pass@1: criteria keyword matching + quality heuristics |
+| `ArcAGI2Benchmark` | Pass@2: exact grid match (JSON 2D array comparison) |
+| `VendingBench2Stub` | Response quality + action identification + change calculation |
+
+---
+
+## Mind Flow Methodology
+
+### Concept
+
+In standard benchmarking, context resets between each test — the model has no memory of previous questions. **Mind flow** changes this: the model maintains a continuous conversation history across all tests, simulating how the i,Robot agent actually operates in production.
+
+### Implementation
+
+1. A shared `mindFlowHistory` array accumulates all messages across tests
+2. Each test's turns are appended to this history
+3. The model sees prior context from earlier tests when answering
+4. Key exchanges are committed to a **sandbox RAG** for retrieval
+
+### Effect on Scores
+
+Mind flow tests whether a model can:
+- Build on knowledge gained from earlier tests
+- Avoid confusion from accumulated context
+- Maintain coherence over long conversation histories
+- Benefit from (rather than be distracted by) prior context
+
+---
+
+## Sandbox Memory Architecture
+
+### Problem
+
+Running benchmarks against the user's real RAG database would pollute it with test data (synthetic conversations, benchmark artifacts).
+
+### Solution
+
+`SandboxMemory` (in `rag-system/sandbox_memory.js`) creates an isolated RAG instance:
+
+1. **Create**: Allocates a unique temporary directory in `os.tmpdir()` (e.g., `/tmp/clippy-bench-1706123456`)
+2. **Initialize**: Creates a full `HierarchicalRAGComplete` instance pointing to the temp directory
+3. **Use**: Benchmark writes memory nodes to the sandbox during mind flow
+4. **Cleanup**: Disposes the RAG instance and recursively deletes the temp directory
+
+The user's `./rag_data` is never touched during benchmarks.
+
+---
+
+## Combined Scoring Formula
+
+```
+i,Robot Score    = weighted average of 8 internal categories (existing weights)
+External Score   = simple average of 4 external benchmark scores
+Combined Score   = 0.70 × i,Robot + 0.30 × External
+```
+
+The 70/30 split reflects that i,Robot-specific capabilities (memory, self-awareness, dialectic reasoning) are the primary evaluation target, while external benchmarks provide a broader intelligence baseline.
+
+On the leaderboard, models are ranked by **Combined Score**. The i,Robot score and individual external scores are shown as separate columns for detailed comparison.

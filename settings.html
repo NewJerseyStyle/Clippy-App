@@ -206,6 +206,19 @@
            target="_blank">community leaderboard</a>.
       </p>
 
+      <div class="benchmark-cost-warning">
+        <strong>Token usage warning:</strong> The benchmark sends many prompts
+        to your API (8 internal categories + 4 external benchmarks). For powerful
+        models this can cost <strong>$5&ndash;$30+</strong> depending on the
+        provider and model. Your results will become an invaluable reference
+        for the whole community &mdash; but only run this if you are willing to
+        pay the bill.
+        <br><br>
+        <strong>Tip:</strong> Set a budget/spending limit on your API provider
+        <em>before</em> running the benchmark to protect yourself from
+        unexpected charges.
+      </div>
+
       <div id="benchmark-model-status" class="benchmark-status"></div>
 
       <div class="field-row">
@@ -214,6 +227,7 @@
       </div>
 
       <div id="benchmark-progress" style="display: none;">
+        <p id="benchmark-phase-label" class="benchmark-phase-label"></p>
         <div class="benchmark-progress-bar">
           <div class="benchmark-progress-fill" id="benchmark-fill"></div>
         </div>
@@ -226,6 +240,32 @@
         <div id="benchmark-overall"></div>
       </div>
     </fieldset>
+
+    <!-- Benchmark Cost Confirmation Modal -->
+    <div id="benchmark-confirm" class="modal">
+      <div class="modal-content">
+        <span class="close-button" id="benchmark-confirm-close">&times;</span>
+        <h2>Run Benchmark?</h2>
+        <p>
+          The benchmark will send a large number of prompts to your API
+          endpoint. Depending on the model and provider this can consume
+          a significant amount of tokens and may incur costs of
+          <strong>$5&ndash;$30+</strong>.
+        </p>
+        <p>
+          Please make sure you have set a <strong>budget limit</strong> on
+          your API provider before continuing.
+        </p>
+        <p>
+          Your results will be shared on the community leaderboard and help
+          everyone choose the right model for i, Robot mode.
+        </p>
+        <div class="modal-actions">
+          <button type="button" id="confirm-benchmark-run" class="btn btn-primary">Run Benchmark</button>
+          <button type="button" id="cancel-benchmark-run" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
     
     <!-- ============ Actions ============ -->
     <div class="actions">

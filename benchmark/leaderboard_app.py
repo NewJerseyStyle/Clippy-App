@@ -59,6 +59,23 @@ CATEGORY_DESCRIPTIONS = {
     "checkpoint_handling": "Given prior context (memory checkpoint), can the model build on it for complex issues?",
 }
 
+# External benchmarks
+EXTERNAL_BENCHMARKS = ["hle", "tau2", "arc_agi2", "vending2"]
+
+EXTERNAL_LABELS = {
+    "hle": "HLE",
+    "tau2": "Tau2",
+    "arc_agi2": "ARC-AGI-2",
+    "vending2": "Vending2",
+}
+
+EXTERNAL_DESCRIPTIONS = {
+    "hle": "Humanity's Last Exam — expert-level questions across disciplines",
+    "tau2": "tau2-bench — multi-turn customer service task completion",
+    "arc_agi2": "ARC-AGI-2 — abstract visual pattern recognition puzzles",
+    "vending2": "Vending Bench 2 — financial decision and transaction scenarios",
+}
+
 
 def load_results() -> dict:
     """Load results from disk."""
@@ -105,6 +122,9 @@ def submit_result(submission_json: str) -> str:
     model_key = model_name.lower()
     overall = submission.get("overall", 0)
     categories = submission.get("categories", {})
+    external = submission.get("external", {})
+    combined_overall = submission.get("combinedOverall", overall)
+    mind_flow = submission.get("mindFlow", False)
 
     with LOCK:
         results = load_results()
@@ -113,7 +133,7 @@ def submit_result(submission_json: str) -> str:
             existing = results[model_key]
             n = existing.get("submission_count", 1)
 
-            # Running average
+            # Running average for i,Robot categories
             existing["overall"] = round(
                 (existing["overall"] * n + overall) / (n + 1)
             )
@@ -123,6 +143,24 @@ def submit_result(submission_json: str) -> str:
                 existing["categories"][cat] = round(
                     (old_val * n + new_val) / (n + 1)
                 )
+
+            # Running average for external benchmarks
+            if "external" not in existing:
+                existing["external"] = {}
+            for bench in EXTERNAL_BENCHMARKS:
+                old_val = existing["external"].get(bench, 0)
+                new_val = external.get(bench, 0)
+                existing["external"][bench] = round(
+                    (old_val * n + new_val) / (n + 1)
+                )
+
+            # Running average for combined score
+            old_combined = existing.get("combined_overall", existing["overall"])
+            existing["combined_overall"] = round(
+                (old_combined * n + combined_overall) / (n + 1)
+            )
+
+            existing["mind_flow"] = mind_flow
             existing["submission_count"] = n + 1
             existing["last_updated"] = datetime.utcnow().isoformat()
         else:
@@ -132,6 +170,12 @@ def submit_result(submission_json: str) -> str:
                 "categories": {
                     cat: round(categories.get(cat, 0)) for cat in CATEGORIES
                 },
+                "external": {
+                    bench: round(external.get(bench, 0))
+                    for bench in EXTERNAL_BENCHMARKS
+                },
+                "combined_overall": round(combined_overall),
+                "mind_flow": mind_flow,
                 "submission_count": 1,
                 "first_submitted": datetime.utcnow().isoformat(),
                 "last_updated": datetime.utcnow().isoformat(),
@@ -160,22 +204,32 @@ def build_leaderboard_df() -> pd.DataFrame:
 
     if not results:
         return pd.DataFrame(
-            columns=["Rank", "Model", "Overall"]
+            columns=["Rank", "Model", "Combined", "i,Robot"]
             + [CATEGORY_LABELS[c] for c in CATEGORIES]
+            + [EXTERNAL_LABELS[b] for b in EXTERNAL_BENCHMARKS]
             + ["Runs"]
         )
 
     rows = []
-    records = sorted(results.values(), key=lambda r: r.get("overall", 0), reverse=True)
+    records = sorted(
+        results.values(),
+        key=lambda r: r.get("combined_overall", r.get("overall", 0)),
+        reverse=True,
+    )
 
     for i, record in enumerate(records, 1):
         row = {
             "Rank": i,
             "Model": record.get("model", "unknown"),
-            "Overall": record.get("overall", 0),
+            "Combined": record.get("combined_overall", record.get("overall", 0)),
+            "i,Robot": record.get("overall", 0),
         }
         for cat in CATEGORIES:
             row[CATEGORY_LABELS[cat]] = record.get("categories", {}).get(cat, 0)
+        for bench in EXTERNAL_BENCHMARKS:
+            row[EXTERNAL_LABELS[bench]] = (
+                record.get("external", {}).get(bench, 0)
+            )
         row["Runs"] = record.get("submission_count", 1)
         rows.append(row)
 
@@ -196,13 +250,16 @@ def format_model_detail(model_name: str) -> str:
         return f"Model '{model_name}' not found on the leaderboard."
 
     record = results[model_key]
+    combined = record.get("combined_overall", record.get("overall", 0))
     lines = [
         f"## {record['model']}",
-        f"**Overall Score:** {record['overall']}/100",
+        f"**Combined Score:** {combined}/100",
+        f"**i,Robot Score:** {record['overall']}/100",
         f"**Benchmark Runs:** {record.get('submission_count', 1)}",
+        f"**Mind Flow:** {'Yes' if record.get('mind_flow') else 'No'}",
         f"**Last Updated:** {record.get('last_updated', 'unknown')}",
         "",
-        "### Category Scores",
+        "### i,Robot Category Scores",
         "| Category | Score | Description |",
         "|----------|-------|-------------|",
     ]
@@ -212,14 +269,33 @@ def format_model_detail(model_name: str) -> str:
         desc = CATEGORY_DESCRIPTIONS.get(cat, "")
         lines.append(f"| {CATEGORY_LABELS[cat]} | {bar} {score}/100 | {desc} |")
 
+    # External benchmark scores
+    ext_data = record.get("external", {})
+    if any(ext_data.get(b, 0) > 0 for b in EXTERNAL_BENCHMARKS):
+        lines.append("")
+        lines.append("### External Benchmark Scores")
+        lines.append("| Benchmark | Score | Description |")
+        lines.append("|-----------|-------|-------------|")
+        for bench in EXTERNAL_BENCHMARKS:
+            score = ext_data.get(bench, 0)
+            bar = score_bar(score)
+            desc = EXTERNAL_DESCRIPTIONS.get(bench, "")
+            lines.append(
+                f"| {EXTERNAL_LABELS[bench]} | {bar} {score}/100 | {desc} |"
+            )
+
     # Capability assessment
     lines.append("")
     lines.append("### Assessment")
-    if record["overall"] >= 80:
-        lines.append("Excellent - this model is highly capable for i,Robot mode.")
-    elif record["overall"] >= 60:
-        lines.append("Good - this model should work well for most i,Robot tasks.")
-    elif record["overall"] >= 40:
+    if combined >= 80:
+        lines.append(
+            "Excellent - this model is highly capable for i,Robot mode."
+        )
+    elif combined >= 60:
+        lines.append(
+            "Good - this model should work well for most i,Robot tasks."
+        )
+    elif combined >= 40:
         lines.append(
             "Fair - this model may struggle with complex tasks. "
             "Consider upgrading to a recommended model."
@@ -292,7 +368,10 @@ def create_app():
                 """
             ## How the Benchmark Works
 
-            The benchmark tests 8 categories critical for i,Robot mode:
+            The benchmark tests 8 internal categories critical for i,Robot mode,
+            plus 4 external benchmarks for comprehensive evaluation.
+
+            ### i,Robot Categories (70% of combined score)
 
             | Category | What It Tests |
             |----------|--------------|
@@ -305,16 +384,33 @@ def create_app():
             | **Skill Application** | Selecting and applying the right method for a problem |
             | **Checkpoint Handling** | Building on loaded prior context for complex decisions |
 
+            ### External Benchmarks (30% of combined score)
+
+            | Benchmark | What It Tests |
+            |-----------|--------------|
+            | **HLE** | Humanity's Last Exam — expert-level questions across disciplines |
+            | **Tau2** | tau2-bench — multi-turn customer service task completion |
+            | **ARC-AGI-2** | Abstract visual pattern recognition puzzles |
+            | **Vending Bench 2** | Financial decision-making and transaction scenarios |
+
             ### Scoring
 
             - Each test case scores 0-100 based on content matching and quality heuristics
-            - Category score = average of test case scores
-            - Overall score = weighted average of category scores
+            - i,Robot score = weighted average of 8 category scores
+            - External score = average of 4 external benchmark scores
+            - **Combined score = 70% i,Robot + 30% External**
             - Multiple submissions for the same model are averaged (running mean)
+
+            ### Mind Flow
+
+            When enabled, the model maintains memory across all benchmark tests
+            instead of resetting context between each test. This uses **sandbox memory**
+            — an isolated temporary RAG database that prevents benchmark data from
+            polluting the user's real memory.
 
             ### Recommended Models
 
-            For i,Robot mode, we recommend models scoring **60+** overall:
+            For i,Robot mode, we recommend models scoring **60+** combined:
             - **DeepSeek V3.2** · **GPT-5.2** · **Claude Sonnet 4.5** · **GLM-4.7**
             - GPT-4o and Claude Sonnet 4 are also acceptable
 
