@@ -7,6 +7,8 @@ const { ContinuousAgent } = require('./rag-system/continuous_agent.js');
 const { SymbolicReasoningManager } = require('./rag-system/symbolic_reasoning.js');
 const { IRobotBenchmark, RECOMMENDED_MODELS } = require('./rag-system/benchmark.js');
 const { LeaderboardClient, buildModelWarning } = require('./rag-system/leaderboard_client.js');
+const { downloadAll, datasetsExist, DEFAULT_OUTPUT_DIR } = require('./benchmark/download_datasets.js');
+const { MemoryOptimizer } = require('./rag-system/memory_optimizer.js');
 
 const store = new Store();
 const leaderboardClient = new LeaderboardClient({ verbose: true });
@@ -15,6 +17,7 @@ let tray = null;
 let mainWindow = null;
 let settingsWindow = null;
 let memory = null;
+let memoryOptimizer = null;
 let memoryStatus = 'idle';
 let learningInterval = null;
 let continuousAgent = null;
@@ -34,9 +37,48 @@ async function initializeMemory() {
   });
   await memory.initialize();
   console.log('Memory initialized');
+
+  // Initialize GRPO memory optimizer
+  memoryOptimizer = new MemoryOptimizer(memory, {
+    dataDir: memory.options.dataDir,
+    callModel: createCallModelForOptimizer(),
+  });
+  await memoryOptimizer.loadExperiences();
+  console.log('Memory optimizer initialized');
+
   if (store.get('intelligent-memory')) {
     startBackgroundLearning();
   }
+}
+
+/**
+ * Create a callModel function for the memory optimizer using the
+ * configured API endpoint (OpenAI-compatible).
+ */
+function createCallModelForOptimizer() {
+  return async (prompt, maxTokens = 500) => {
+    const axios = require('axios');
+    const endpoint = store.get('api-endpoint', 'https://api.groq.com/openai/v1');
+    const apiKey = store.get('api-key', '');
+    const model = store.get('model', 'llama-3.3-70b-versatile');
+
+    if (!apiKey) return ''; // no API key, optimizer will use heuristics
+
+    const resp = await axios.post(`${endpoint}/chat/completions`, {
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0.3
+    }, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    });
+
+    return resp.data.choices[0].message.content;
+  };
 }
 
 function startBackgroundLearning() {
@@ -78,6 +120,13 @@ async function initializeSymbolicReasoning() {
     return null;
   }
 
+  // Disable MCP servers when i,Robot mode is active (safety measure)
+  const irobotActive = store.get('irobot-mode', false);
+  const mcpServers = irobotActive ? [] : store.get('symbolic-mcp-servers', []);
+  if (irobotActive && store.get('symbolic-mcp-servers', []).length > 0) {
+    console.log('MCP servers disabled: i,Robot mode is active');
+  }
+
   symbolicReasoning = new SymbolicReasoningManager({
     openaiBaseUrl: baseUrl.replace(/\/chat\/completions$/, ''),
     openaiApiKey: apiKey,
@@ -85,7 +134,7 @@ async function initializeSymbolicReasoning() {
     enableAlgebrite: store.get('symbolic-algebrite', false),
     enableZ3: store.get('symbolic-z3', false),
     enableSwipl: store.get('symbolic-swipl', false),
-    mcpServers: store.get('symbolic-mcp-servers', []),
+    mcpServers: mcpServers,
     verbose: true
   });
 
@@ -99,12 +148,15 @@ async function startIRobotMode() {
   await initializeMemory();
   await initializeSymbolicReasoning();
 
+  const thinkingDelaySec = store.get('thinking-delay', 59);
   continuousAgent = new ContinuousAgent({
     apiKey: store.get('api-key'),
     longTermMemory: memory,
+    memoryOptimizer: memoryOptimizer,
     symbolicReasoning: symbolicReasoning,
+    webSearchEnabled: store.get('web-search-enabled', false),
     verbose: true,
-    cycleDelay: 1000,
+    cycleDelay: Math.max(1, thinkingDelaySec) * 1000,
   });
 
   continuousAgent.on('message', (msg) => {
@@ -429,7 +481,25 @@ ipcMain.on('check-model-leaderboard', async (event, modelName) => {
 
 ipcMain.on('run-benchmark', async (event, config) => {
   try {
-    // Try to download external dataset (skip if not available)
+    // Auto-download external datasets if not present
+    if (!datasetsExist(DEFAULT_OUTPUT_DIR)) {
+      event.sender.send('benchmark-progress', {
+        phase: 'setup', status: 'running', message: 'Downloading external benchmark datasets...'
+      });
+      try {
+        await downloadAll(DEFAULT_OUTPUT_DIR);
+        event.sender.send('benchmark-progress', {
+          phase: 'setup', status: 'done', message: 'External datasets ready'
+        });
+      } catch (dlError) {
+        console.error('Dataset download failed (non-fatal):', dlError.message);
+        event.sender.send('benchmark-progress', {
+          phase: 'setup', status: 'done', message: 'Using fallback datasets'
+        });
+      }
+    }
+
+    // Try to download external dataset from HuggingFace (for i,Robot tests)
     const dataset = await leaderboardClient.downloadDataset();
 
     const benchmark = new IRobotBenchmark({
@@ -437,7 +507,17 @@ ipcMain.on('run-benchmark', async (event, config) => {
       apiKey: config.apiKey,
       model: config.model,
       externalDataset: dataset,
-      verbose: true
+      verbose: true,
+      // New options for mind flow and external benchmarks
+      useMindFlow: config.useMindFlow !== undefined ? config.useMindFlow : true,
+      externalBenchmarks: config.externalBenchmarks || ['hle', 'tau2', 'arc_agi2', 'vending2'],
+      externalDataDir: DEFAULT_OUTPUT_DIR,
+      embeddingOptions: {
+        embeddingProvider: store.get('embedding-provider', 'local'),
+        openaiApiKey: store.get('openai-embedding-api-key', ''),
+        openaiApiBaseUrl: store.get('openai-embedding-base-url', 'https://api.openai.com/v1'),
+        openaiEmbeddingModel: store.get('openai-embedding-model', 'text-embedding-ada-002'),
+      },
     });
 
     let categoriesDone = 0;
