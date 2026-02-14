@@ -30,6 +30,7 @@ const openaiEmbeddingModel = document.getElementById('openai-embedding-model');
 const memoryReadNews = document.getElementById('memory-read-news');
 const clearMemoryBtn = document.getElementById('clear-memory');
 const memoryStatus = document.getElementById('memory-status');
+const webSearchEnabled = document.getElementById('web-search-enabled');
 
 // Symbolic Reasoning elements
 const symbolicEnabled = document.getElementById('symbolic-enabled');
@@ -80,6 +81,7 @@ openaiEmbeddingApiKey.value = saved['openai-embedding-api-key'] || '';
 openaiEmbeddingBaseUrl.value = saved['openai-embedding-base-url'] || 'https://api.openai.com/v1';
 openaiEmbeddingModel.value = saved['openai-embedding-model'] || 'text-embedding-ada-002';
 memoryReadNews.checked = !!saved['memory-read-news'];
+webSearchEnabled.checked = !!saved['web-search-enabled'];
 
 // Load symbolic reasoning settings
 symbolicEnabled.checked = !!saved['symbolic-enabled'];
@@ -258,6 +260,11 @@ function updateModeDependencies() {
     if (!canIrobot && irobotMode.checked) irobotMode.checked = false;
   }
 
+  // Web search requires i,Robot mode (it's a ContinuousAgent feature)
+  const irobotOn = irobotMode && irobotMode.checked;
+  webSearchEnabled.disabled = !irobotOn;
+  if (!irobotOn && webSearchEnabled.checked) webSearchEnabled.checked = false;
+
   extensionsSection.style.display = hasEndpoint ? 'block' : 'none';
   updateBenchmarkVisibility();
   updateMcpAvailability();
@@ -315,6 +322,7 @@ settingsForm.addEventListener('submit', (event) => {
     'openai-embedding-base-url': openaiEmbeddingBaseUrl.value,
     'openai-embedding-model': openaiEmbeddingModel.value,
     'memory-read-news': memoryReadNews.checked,
+    'web-search-enabled': webSearchEnabled.checked,
     'symbolic-enabled': symbolicEnabled.checked,
     'symbolic-algebrite': symbolicAlgebrite.checked,
     'symbolic-z3': symbolicZ3.checked,

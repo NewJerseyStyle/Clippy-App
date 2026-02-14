@@ -111,6 +111,7 @@ async function startIRobotMode() {
     apiKey: store.get('api-key'),
     longTermMemory: memory,
     symbolicReasoning: symbolicReasoning,
+    webSearchEnabled: store.get('web-search-enabled', false),
     verbose: true,
     cycleDelay: 1000,
   });

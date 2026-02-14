@@ -518,15 +518,16 @@ class ContinuousAgent extends EventEmitter {
     this.dialectic = new DialecticEngine(this);
     this.workingMemory.dialecticEngine = this.dialectic;
     this.symbolicReasoning = options.symbolicReasoning || null;
+    this.webSearchEnabled = options.webSearchEnabled || false;
 
     // 事件隊列
     this.eventQueue = [];
-    
+
     // 狀態
     this.isRunning = false;
     this.cycleCount = 0;
     this.lastThinkTime = Date.now();
-    
+
     // 配置
     this.config = {
       cycleDelay: options.cycleDelay || 500, // 500ms 一個循環
@@ -535,8 +536,33 @@ class ContinuousAgent extends EventEmitter {
     };
   }
   
+  /**
+   * Build the tools array for messages.create().
+   * Includes web_search if enabled.
+   */
+  _getTools() {
+    if (!this.webSearchEnabled) return undefined;
+    return [{
+      type: 'web_search_20250305',
+      name: 'web_search',
+      max_uses: 3
+    }];
+  }
+
+  /**
+   * Extract text from a messages API response, handling both plain text
+   * and tool-use responses (web search returns mixed content blocks).
+   */
+  _extractText(response) {
+    if (!response.content || response.content.length === 0) return '';
+    return response.content
+      .filter(block => block.type === 'text')
+      .map(block => block.text)
+      .join('\n');
+  }
+
   // ==================== 主循環 ====================
-  
+
   async start() {
     this.isRunning = true;
     this.log('🤖 Clippy 開始運行...');
@@ -664,13 +690,14 @@ class ContinuousAgent extends EventEmitter {
         max_tokens: 1500,
         temperature: 0.7,
         system: this.buildSystemPrompt(),
+        tools: this._getTools(),
         messages: [{
           role: 'user',
           content: prompt
         }]
       });
-      
-      const result = this.parseJSON(response.content[0].text);
+
+      const result = this.parseJSON(this._extractText(response));
       this.log('🧠 ORID 分析完成');
       
       return result;
@@ -754,13 +781,14 @@ ${recentMemories.map(m => `- ${m.type}: ${JSON.stringify(m.data)}`).join('\n')}
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
         temperature: 0.7,
+        tools: this._getTools(),
         messages: [{
           role: 'user',
           content: prompt
         }]
       });
-      
-      const decision = this.parseJSON(response.content[0].text);
+
+      const decision = this.parseJSON(this._extractText(response));
       
       // Add thinking process to working memory
       this.workingMemory.add({
@@ -939,10 +967,11 @@ ${JSON.stringify(orientation.orid, null, 2)}
     const response = await this.client.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 800,
+      tools: this._getTools(),
       messages: [{ role: 'user', content: prompt }]
     });
-    
-    return this.parseJSON(response.content[0].text);
+
+    return this.parseJSON(this._extractText(response));
   }
   
   async useTool(decision) {
@@ -1123,10 +1152,11 @@ Return JSON:
             model: 'claude-sonnet-4-20250514',
             max_tokens: 800,
             temperature: 0.8,
+            tools: this._getTools(),
             messages: [{ role: 'user', content: prompt }]
           });
 
-          const reflection = this.parseJSON(response.content[0].text);
+          const reflection = this.parseJSON(this._extractText(response));
           this.log(`  🪞 反思結果: ${reflection.humilityNote || 'completed'}`);
 
           this.workingMemory.add({
