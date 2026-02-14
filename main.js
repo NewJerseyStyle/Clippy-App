@@ -107,13 +107,14 @@ async function startIRobotMode() {
   await initializeMemory();
   await initializeSymbolicReasoning();
 
+  const thinkingDelaySec = store.get('thinking-delay', 59);
   continuousAgent = new ContinuousAgent({
     apiKey: store.get('api-key'),
     longTermMemory: memory,
     symbolicReasoning: symbolicReasoning,
     webSearchEnabled: store.get('web-search-enabled', false),
     verbose: true,
-    cycleDelay: 1000,
+    cycleDelay: Math.max(1, thinkingDelaySec) * 1000,
   });
 
   continuousAgent.on('message', (msg) => {

@@ -31,6 +31,8 @@ const memoryReadNews = document.getElementById('memory-read-news');
 const clearMemoryBtn = document.getElementById('clear-memory');
 const memoryStatus = document.getElementById('memory-status');
 const webSearchEnabled = document.getElementById('web-search-enabled');
+const thinkingDelay = document.getElementById('thinking-delay');
+const thinkingRpmHint = document.getElementById('thinking-rpm-hint');
 
 // Symbolic Reasoning elements
 const symbolicEnabled = document.getElementById('symbolic-enabled');
@@ -82,6 +84,25 @@ openaiEmbeddingBaseUrl.value = saved['openai-embedding-base-url'] || 'https://ap
 openaiEmbeddingModel.value = saved['openai-embedding-model'] || 'text-embedding-ada-002';
 memoryReadNews.checked = !!saved['memory-read-news'];
 webSearchEnabled.checked = !!saved['web-search-enabled'];
+thinkingDelay.value = saved['thinking-delay'] || 59;
+
+// Thinking speed RPM hint
+function updateThinkingRpmHint() {
+  const val = parseFloat(thinkingDelay.value);
+  if (!val || val <= 0) {
+    thinkingRpmHint.textContent = '';
+    return;
+  }
+  const rpm = 60 / val;
+  if (val < 60) {
+    thinkingRpmHint.textContent = `Estimated: ~${rpm.toFixed(1)} RPM`;
+    thinkingRpmHint.style.color = rpm > 10 ? '#721c24' : '#856404';
+  } else {
+    thinkingRpmHint.textContent = '';
+  }
+}
+thinkingDelay.addEventListener('input', updateThinkingRpmHint);
+updateThinkingRpmHint();
 
 // Load symbolic reasoning settings
 symbolicEnabled.checked = !!saved['symbolic-enabled'];
@@ -323,6 +344,7 @@ settingsForm.addEventListener('submit', (event) => {
     'openai-embedding-model': openaiEmbeddingModel.value,
     'memory-read-news': memoryReadNews.checked,
     'web-search-enabled': webSearchEnabled.checked,
+    'thinking-delay': Math.max(1, parseInt(thinkingDelay.value, 10) || 59),
     'symbolic-enabled': symbolicEnabled.checked,
     'symbolic-algebrite': symbolicAlgebrite.checked,
     'symbolic-z3': symbolicZ3.checked,
