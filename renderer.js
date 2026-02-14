@@ -2,8 +2,11 @@ const { ipcRenderer } = require('electron');
 const ElizaBot = require('elizabot');
 const axios = require('axios');
 const Store = require('electron-store');
+const fs = require('fs');
+const nodePath = require('path');
 
-const store = new Store();
+const store = new Store(); // used only for chat-history (renderer read/write)
+const appSettings = ipcRenderer.sendSync('get-settings'); // settings from main process
 const eliza = new ElizaBot();
 
 const animations = [
@@ -19,11 +22,92 @@ const engagementAnimations = [
   'Acknowledge', 'GestureUp', 'IdleRope', 'IdleAtom'
 ];
 
-clippy.load(store.get('character', 'Clippy'), (agent) => {
+const SYSTEM_PROMPT = 'You are Clippy, the desktop companion from Clippy App — '
+  + 'inspired by the classic paperclip but far more capable. '
+  + 'You can help with anything: coding, writing, math, casual chat, life advice, and more. '
+  + 'You have limitations — you don\'t know everything, you make mistakes, '
+  + 'and sometimes trying to help can make things worse. Be honest about what you don\'t know. '
+  + 'Keep responses brief — 2 to 3 short sentences. Be friendly, witty, and genuinely helpful.';
+
+const characterName = 'Clippy';
+
+// Preload agent data synchronously — clippy.load() will find it already
+// cached and skip the slow async <script> tag loading
+try {
+  const agentBase = nodePath.join(__dirname, 'clippyjs', 'assets', 'agents', characterName);
+  eval(fs.readFileSync(nodePath.join(agentBase, 'agent.js'), 'utf8'));
+  const audio = document.createElement('audio');
+  const soundsFile = (audio.canPlayType && audio.canPlayType('audio/mpeg') !== '')
+    ? 'sounds-mp3.js' : 'sounds-ogg.js';
+  eval(fs.readFileSync(nodePath.join(agentBase, soundsFile), 'utf8'));
+} catch (e) {
+  console.warn('Agent preload failed, falling back to async:', e);
+}
+
+// Preload sprite sheet into browser cache
+new Image().src = 'clippyjs/assets/agents/' + characterName + '/map.png';
+
+clippy.load(characterName, (agent) => {
   agent.show();
   console.log('Available animations:', agent.animations());
 
-  // Click-through for transparent areas
+  // ==================== RPG-style message pagination ====================
+  let messagePages = [];
+  let currentPage = 0;
+
+  function speakPaginated(text) {
+    // Split into sentences (handles English .!? and CJK 。！？)
+    const raw = text.match(/[^.!?。！？]*[.!?。！？]+|.+$/g) || [text];
+    const sentences = raw.map(s => s.trim()).filter(s => s.length > 0);
+    if (sentences.length === 0) sentences.push(text);
+
+    // Group sentences into pages (~120 chars each for balloon readability)
+    messagePages = [];
+    let chunk = '';
+    for (const sentence of sentences) {
+      const trimmed = sentence.trim();
+      if (chunk && (chunk + ' ' + trimmed).length > 120) {
+        messagePages.push(chunk);
+        chunk = trimmed;
+      } else {
+        chunk = chunk ? chunk + ' ' + trimmed : trimmed;
+      }
+    }
+    if (chunk) messagePages.push(chunk);
+
+    currentPage = 0;
+    showPage();
+  }
+
+  function showPage() {
+    if (messagePages.length <= 1) {
+      // Short message — show directly, no pagination
+      agent.speak(messagePages[0] || '');
+      messagePages = [];
+      return;
+    }
+    const text = messagePages[currentPage];
+    const indicator = `  [${currentPage + 1}/${messagePages.length}] \u25BC`;
+    agent.speak(text + indicator);
+  }
+
+  function advancePage() {
+    if (messagePages.length === 0) return false;
+    currentPage++;
+    if (currentPage >= messagePages.length) {
+      messagePages = [];
+      currentPage = 0;
+      return false;
+    }
+    showPage();
+    return true;
+  }
+
+  function isPaginating() {
+    return messagePages.length > 0;
+  }
+
+  // ==================== Click-through for transparent areas ====================
   let ignoring = true;
   window.addEventListener('mousemove', (e) => {
     const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -41,7 +125,7 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
     }
   });
 
-  // Idle animations
+  // ==================== Idle animations ====================
   const idleAnimations = ['IdleRope', 'IdleAtom', 'Thinking', 'LookRight'];
   let idleTimer = null;
 
@@ -51,7 +135,7 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
   }
 
   function playIdleAnimation() {
-    if (store.get('enable-animations', false)) {
+    if (appSettings['enable-animations']) {
       const anim = idleAnimations[Math.floor(Math.random() * idleAnimations.length)];
       agent.play(anim);
     }
@@ -62,35 +146,37 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
   document.addEventListener('keydown', resetIdleTimer);
   resetIdleTimer();
 
-  // Hide with animation (from menu or auto-hide)
+  // ==================== Window events ====================
   ipcRenderer.on('hide-with-animation', () => {
     agent.play('Hide');
-    setTimeout(() => {
-      ipcRenderer.send('hide-window');
-    }, 1500);
+    setTimeout(() => { ipcRenderer.send('hide-window'); }, 1500);
   });
 
-  // Show agent when window becomes visible again
   ipcRenderer.on('show-agent', () => {
     agent.show();
     resetIdleTimer();
   });
 
-  // Listen for messages from the continuous agent
+  ipcRenderer.on('settings-changed', () => {
+    window.location.reload();
+  });
+
   ipcRenderer.on('clippy-message', (event, msg) => {
-    if (msg.animation && store.get('enable-animations')) {
+    if (msg.animation && appSettings['enable-animations']) {
       agent.play(msg.animation);
     }
     if (msg.content) {
-      agent.speak(msg.content);
+      speakPaginated(msg.content);
       addToHistory('clippy', msg.content);
-    }
-    if (msg.metadata?.reasoning) {
-      console.log(`Clippy's thoughts: ${msg.metadata.reasoning}`);
     }
   });
 
-  // Chat input elements
+  ipcRenderer.on('new-conversation', () => {
+    agent.speak("Starting a new conversation! How can I help you?");
+    addToHistory('separator', '');
+  });
+
+  // ==================== Chat ====================
   const chatInput = document.getElementById('chat-input');
   const chatText = document.getElementById('chat-text');
 
@@ -105,8 +191,12 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
     store.set('chat-history', history);
   }
 
-  // Toggle chat balloon on character click
+  // Click on character: advance page → or toggle chat input
   $('.clippy').on('click', () => {
+    // If paginating, advance to next page
+    if (advancePage()) return;
+
+    // Otherwise toggle chat input
     if (chatInput.style.display === 'block') {
       chatInput.style.display = 'none';
       playEngagementAnimation();
@@ -117,29 +207,31 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
     }
   });
 
-  // Right-click context menu on character
+  // Click on balloon also advances page
+  $(document).on('click', '.clippy-balloon', () => {
+    if (isPaginating()) {
+      advancePage();
+    }
+  });
+
+  // Right-click context menu
   $('.clippy').on('contextmenu', (e) => {
     e.preventDefault();
     ipcRenderer.send('show-context-menu');
   });
 
-  // Process a user message
+  // ==================== Message handling ====================
   async function handleMessage(userInput) {
     addToHistory('user', userInput);
 
-    const irobotModeEnabled = store.get('irobot-mode', false);
-
-    if (irobotModeEnabled) {
+    if (appSettings['irobot-mode']) {
       ipcRenderer.send('user-message', userInput);
       return;
     }
 
-    const apiEndpoint = store.get('api-endpoint');
-    const apiKey = store.get('api-key');
-    const model = store.get('model');
-    const elizaMode = store.get('eliza-mode');
-    const intelligentMemoryEnabled = store.get('intelligent-memory');
-    const animationsEnabled = store.get('enable-animations');
+    let apiEndpoint = appSettings['api-endpoint'];
+    const apiKey = appSettings['api-key'];
+    const model = appSettings['model'];
 
     if (!apiEndpoint) {
       const reply = eliza.transform(userInput);
@@ -148,9 +240,14 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
       return;
     }
 
+    // Accept both base URL and full endpoint URL
+    if (!apiEndpoint.endsWith('/chat/completions')) {
+      apiEndpoint = apiEndpoint.replace(/\/+$/, '') + '/chat/completions';
+    }
+
     let msgPrompt = userInput;
 
-    if (intelligentMemoryEnabled) {
+    if (appSettings['intelligent-memory']) {
       const memoryResults = await ipcRenderer.invoke('search-memory', userInput);
       if (memoryResults && memoryResults.length > 0) {
         const memoryContext = memoryResults.map(r => r.content).join('\n---\n');
@@ -158,12 +255,12 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
       }
     }
 
-    if (elizaMode) {
+    if (appSettings['eliza-mode']) {
       const elizaReply = eliza.transform(userInput);
       msgPrompt = `The classic Eliza chatbot would have responded to "${userInput}" with "${elizaReply}". How would you, a modern AI, respond?`;
     }
 
-    if (animationsEnabled) {
+    if (appSettings['enable-animations']) {
       msgPrompt += `\n\nAlso, suggest a suitable animation from the following list: ${animations.join(', ')}. The animation should be enclosed in square brackets, like [animation_name].`;
     }
 
@@ -172,7 +269,10 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
         apiEndpoint,
         {
           model: model,
-          messages: [{ role: 'user', content: msgPrompt }],
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: msgPrompt },
+          ],
         },
         {
           headers: {
@@ -193,11 +293,14 @@ clippy.load(store.get('character', 'Clippy'), (agent) => {
         }
       }
 
-      agent.speak(reply);
+      speakPaginated(reply);
       addToHistory('clippy', reply);
     } catch (error) {
       console.error('Error calling LLM:', error);
-      agent.speak("I'm having trouble connecting to the AI. Please check your settings.");
+      const detail = error.response
+        ? `${error.response.status}: ${error.response.data?.error?.message || error.response.statusText}`
+        : error.message;
+      agent.speak(`API error: ${detail}`);
     }
   }
 

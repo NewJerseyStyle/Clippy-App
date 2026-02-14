@@ -14,14 +14,19 @@
       <legend>Connection</legend>
 
       <div class="field">
-        <label for="api-endpoint">API Endpoint</label>
+        <label for="api-endpoint">API Base URL</label>
         <input type="text" id="api-endpoint" name="api-endpoint"
-               placeholder="http://localhost:11434/v1/chat/completions">
+               placeholder="https://api.groq.com/openai/v1">
+        <p class="hint">
+          Ollama: <code>http://localhost:11434/v1</code>
+          &mdash;
+          Groq: <code>https://api.groq.com/openai/v1</code>
+        </p>
       </div>
 
       <div class="field">
         <label for="api-key">API Key</label>
-        <input type="text" id="api-key" name="api-key">
+        <input type="password" id="api-key" name="api-key">
       </div>
 
       <div class="field">
@@ -39,6 +44,7 @@
     <fieldset class="section">
       <legend>Behavior</legend>
 
+      <!-- ============ Disable Characters ============ 
       <div class="field">
         <label for="character">Character</label>
         <select id="character" name="character">
@@ -53,7 +59,7 @@
           <option value="Rocky">Rocky</option>
           <option value="Rover">Rover</option>
         </select>
-      </div>
+      </div> -->
 
       <label class="check">
         <input type="checkbox" id="eliza-mode" name="eliza-mode">
@@ -65,12 +71,6 @@
         <input type="checkbox" id="enable-animations" name="enable-animations">
         <span class="check-label">Enable Animations</span>
         <span class="check-desc">Suggests animations to the LLM</span>
-      </label>
-
-      <label class="check">
-        <input type="checkbox" id="irobot-mode" name="irobot-mode">
-        <span class="check-label">i, Robot Mode</span>
-        <span class="check-desc">Autonomous continuous agent with memory and reasoning</span>
       </label>
     </fieldset>
 
@@ -120,9 +120,16 @@
           <span class="check-desc">Allow memory to read news for background learning</span>
         </label>
 
+        <label class="check">
+          <input type="checkbox" id="irobot-mode" name="irobot-mode">
+          <span class="check-label">i, Robot Mode</span>
+          <span class="check-desc">Autonomous continuous agent with memory and reasoning</span>
+        </label>
+
         <div class="field-row">
           <button type="button" id="clear-memory" class="btn">Clear Memory</button>
           <span class="status-inline">Status: <span id="memory-status">idle</span></span>
+          <span class="check-desc">This will reset it to a new baby</span>
         </div>
       </div>
     </fieldset>
@@ -138,22 +145,7 @@
       </label>
 
       <div id="symbolic-options" class="sub-options">
-        <div class="field">
-          <label for="symbolic-openai-base-url">OpenAI-compatible Base URL</label>
-          <input type="text" id="symbolic-openai-base-url"
-                 name="symbolic-openai-base-url"
-                 placeholder="https://api.openai.com/v1">
-        </div>
-        <div class="field">
-          <label for="symbolic-openai-api-key">OpenAI-compatible API Key</label>
-          <input type="password" id="symbolic-openai-api-key"
-                 name="symbolic-openai-api-key" placeholder="sk-...">
-        </div>
-        <div class="field">
-          <label for="symbolic-openai-model">Model</label>
-          <input type="text" id="symbolic-openai-model"
-                 name="symbolic-openai-model" placeholder="gpt-4o-mini">
-        </div>
+        <p class="hint">Uses the API connection configured above.</p>
 
         <fieldset class="inner-fieldset">
           <legend>Reasoning Engines</legend>
@@ -175,7 +167,7 @@
         </fieldset>
 
         <fieldset class="inner-fieldset">
-          <legend>MCP Servers</legend>
+          <legend>MCP Servers - Reasoning</legend>
           <p class="hint">External reasoning services via Model Context Protocol.</p>
           <div id="mcp-server-list"></div>
           <div class="mcp-add-row">
@@ -193,7 +185,7 @@
       <legend>Extensions</legend>
 
       <fieldset class="inner-fieldset">
-        <legend>MCP Servers</legend>
+        <legend>MCP Servers - General</legend>
         <p class="hint">Add external services via Model Context Protocol for web search, code execution, and more.</p>
         <div id="general-mcp-server-list"></div>
         <div class="mcp-add-row">
@@ -234,7 +226,7 @@
         <div id="benchmark-overall"></div>
       </div>
     </fieldset>
-
+    
     <!-- ============ Actions ============ -->
     <div class="actions">
       <button type="submit" class="btn btn-primary">Save</button>

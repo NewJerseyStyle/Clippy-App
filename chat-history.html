@@ -34,6 +34,23 @@
       text-align: center;
       margin-top: 40px;
     }
+    .separator {
+      border: none;
+      border-top: 1px solid #b0a890;
+      margin: 16px 0;
+      position: relative;
+    }
+    .separator::after {
+      content: 'New Conversation';
+      position: absolute;
+      top: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ece9d8;
+      padding: 0 8px;
+      font-size: 10px;
+      color: #888;
+    }
   </style>
 </head>
 <body>
@@ -48,6 +65,13 @@
       container.innerHTML = '<p class="empty">No chat history yet.</p>';
     } else {
       history.forEach(msg => {
+        if (msg.role === 'separator') {
+          const hr = document.createElement('hr');
+          hr.className = 'separator';
+          container.appendChild(hr);
+          return;
+        }
+
         const div = document.createElement('div');
         div.className = 'message ' + (msg.role === 'user' ? 'user' : 'clippy');
 
