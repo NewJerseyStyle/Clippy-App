@@ -41,3 +41,7 @@ To get a local copy of Clippy Electron up and running, Follow these instructions
 - [Electron Updater](https://www.electron.build/auto-update)
 - [Electron Store](https://github.com/sindresorhus/electron-store)
 - [Axios](https://axios-http.com/)
+
+## Acknowledgements
+- 🙌 Thanks [Arthur](https://github.com/imitation-alpha/) for his expertise, invaluable time in discussion and kind sponsorship in the development of this Clippy App
+- 💝 Thanks to [Pooya](https://github.com/pi0) for brining back Clippy through [pi0/ClippyJS](https://github.com/pi0/clippyjs)

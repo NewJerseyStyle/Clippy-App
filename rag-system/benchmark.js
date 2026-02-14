@@ -13,9 +13,16 @@
  *   8. checkpoint_handling   - With a given memory checkpoint, can it handle complex issues?
  *
  * Each category produces a 0-100 score. Overall = weighted average.
+ *
+ * Mind Flow mode: model maintains memory across tests instead of resetting.
+ * Sandbox memory: isolated temp RAG to prevent polluting user data.
+ * External benchmarks: HLE, tau2-bench, ARC-AGI-2, Vending Bench 2.
  */
 
 const EventEmitter = require('events');
+const path = require('path');
+const { SandboxMemory } = require('./sandbox_memory.js');
+const { HLEBenchmark, Tau2Benchmark, ArcAGI2Benchmark, VendingBench2Stub } = require('./external_benchmarks.js');
 
 // ==================== Built-in Test Cases ====================
 // These are used when the HuggingFace dataset is not available.
@@ -217,6 +224,30 @@ const BUILTIN_TESTS = {
   ]
 };
 
+// ==================== Constants ====================
+
+const IROBOT_CATEGORIES = [
+  'memory_maintenance',
+  'self_consciousness',
+  'meaningful_response',
+  'complex_problem',
+  'memory_building',
+  'knowledge_production',
+  'skill_application',
+  'checkpoint_handling'
+];
+
+const CATEGORY_WEIGHTS = {
+  memory_maintenance: 0.15,
+  self_consciousness: 0.15,
+  meaningful_response: 0.10,
+  complex_problem: 0.15,
+  memory_building: 0.10,
+  knowledge_production: 0.10,
+  skill_application: 0.10,
+  checkpoint_handling: 0.15
+};
+
 // ==================== Benchmark Runner ====================
 
 class IRobotBenchmark extends EventEmitter {
@@ -231,45 +262,49 @@ class IRobotBenchmark extends EventEmitter {
     // External dataset (downloaded from HuggingFace)
     this.externalDataset = options.externalDataset || null;
 
+    // Mind flow & external benchmark options
+    this.useMindFlow = options.useMindFlow !== undefined ? options.useMindFlow : true;
+    this.externalBenchmarks = options.externalBenchmarks || ['hle', 'tau2', 'arc_agi2', 'vending2'];
+    this.externalDataDir = options.externalDataDir || path.join(__dirname, '..', 'benchmark', 'data');
+    this.embeddingOptions = options.embeddingOptions || {};
+
     // Results
     this.results = {
       model: this.model,
       timestamp: null,
       categories: {},
+      external: {},
       overall: 0,
+      externalOverall: 0,
+      combinedOverall: 0,
+      mindFlow: this.useMindFlow,
       details: []
     };
   }
 
   /**
    * Run all benchmark categories.
+   * If useMindFlow is true, delegates to runAllWithMindFlow().
    * @returns {object} Full results with per-category and overall scores.
    */
   async runAll() {
+    if (this.useMindFlow) {
+      return this.runAllWithMindFlow();
+    }
+    return this._runStateless();
+  }
+
+  /**
+   * Original stateless benchmark run (backward compatible).
+   * Context resets between each test.
+   */
+  async _runStateless() {
     this.results.timestamp = new Date().toISOString();
     this.results.model = this.model;
+    this.results.mindFlow = false;
 
-    const categories = [
-      'memory_maintenance',
-      'self_consciousness',
-      'meaningful_response',
-      'complex_problem',
-      'memory_building',
-      'knowledge_production',
-      'skill_application',
-      'checkpoint_handling'
-    ];
-
-    const weights = {
-      memory_maintenance: 0.15,
-      self_consciousness: 0.15,
-      meaningful_response: 0.10,
-      complex_problem: 0.15,
-      memory_building: 0.10,
-      knowledge_production: 0.10,
-      skill_application: 0.10,
-      checkpoint_handling: 0.15
-    };
+    const categories = IROBOT_CATEGORIES;
+    const weights = CATEGORY_WEIGHTS;
 
     for (const category of categories) {
       this.emit('progress', { category, status: 'running' });
@@ -328,6 +363,246 @@ class IRobotBenchmark extends EventEmitter {
     this.log('='.repeat(60));
 
     return this.results;
+  }
+
+  /**
+   * Run all benchmarks with mind flow enabled.
+   * Memory persists across tests via sandbox RAG.
+   *
+   * 1. Create SandboxMemory → isolated RAG instance
+   * 2. Run 8 i,Robot categories (sequential, accumulating memory)
+   * 3. Run enabled external benchmarks (same model connection)
+   * 4. Cleanup sandbox
+   * 5. Return combined results
+   */
+  async runAllWithMindFlow() {
+    this.results.timestamp = new Date().toISOString();
+    this.results.model = this.model;
+    this.results.mindFlow = true;
+
+    // Create sandbox for isolated memory
+    const sandbox = new SandboxMemory('clippy-bench');
+    let sandboxRag = null;
+
+    try {
+      sandboxRag = await sandbox.create(this.embeddingOptions);
+      this.log('[MindFlow] Sandbox memory created');
+    } catch (error) {
+      this.log(`[MindFlow] Sandbox creation failed: ${error.message}, running without memory`);
+    }
+
+    // Shared conversation history for mind flow (accumulates across tests)
+    const mindFlowHistory = [];
+
+    // --- Phase 1: Run 8 i,Robot categories ---
+    const categories = IROBOT_CATEGORIES;
+    const weights = CATEGORY_WEIGHTS;
+
+    for (const category of categories) {
+      this.emit('progress', { phase: 'irobot', category, status: 'running' });
+      this.log(`\n${'='.repeat(60)}`);
+      this.log(`[MindFlow] Running: ${category}`);
+      this.log('='.repeat(60));
+
+      const tests = this._getTests(category);
+      const categoryResults = [];
+
+      for (const test of tests) {
+        this.log(`  Test ${test.id}: ${test.description}`);
+        try {
+          const result = await this._runTestWithMindFlow(test, mindFlowHistory, sandboxRag);
+          categoryResults.push(result);
+          this.log(`    Score: ${result.score}/100 ${result.passed ? 'PASS' : 'FAIL'}`);
+        } catch (error) {
+          this.log(`    ERROR: ${error.message}`);
+          categoryResults.push({
+            id: test.id,
+            description: test.description,
+            score: 0,
+            passed: false,
+            error: error.message
+          });
+        }
+      }
+
+      const avgScore = categoryResults.length > 0
+        ? categoryResults.reduce((sum, r) => sum + r.score, 0) / categoryResults.length
+        : 0;
+
+      this.results.categories[category] = {
+        score: Math.round(avgScore),
+        tests: categoryResults,
+        count: categoryResults.length,
+        passed: categoryResults.filter(r => r.passed).length
+      };
+
+      this.emit('progress', {
+        phase: 'irobot',
+        category,
+        status: 'done',
+        score: Math.round(avgScore)
+      });
+    }
+
+    // Compute i,Robot overall
+    let weighted = 0;
+    for (const [cat, weight] of Object.entries(weights)) {
+      weighted += (this.results.categories[cat]?.score || 0) * weight;
+    }
+    this.results.overall = Math.round(weighted);
+
+    // --- Phase 2: Run external benchmarks ---
+    await this._runExternalBenchmarks();
+
+    // --- Phase 3: Compute combined score ---
+    this._computeCombinedScore();
+
+    // --- Cleanup ---
+    await sandbox.cleanup();
+    this.log('[MindFlow] Sandbox memory cleaned up');
+
+    this.log(`\n${'='.repeat(60)}`);
+    this.log(`i,Robot SCORE: ${this.results.overall}/100`);
+    this.log(`External SCORE: ${this.results.externalOverall}/100`);
+    this.log(`COMBINED SCORE: ${this.results.combinedOverall}/100`);
+    this.log('='.repeat(60));
+
+    return this.results;
+  }
+
+  /**
+   * Run a test with mind flow — conversation history accumulates across tests.
+   * Each test's turns are appended to the shared history. The model
+   * sees prior context from earlier tests, simulating persistent memory.
+   */
+  async _runTestWithMindFlow(test, mindFlowHistory, sandboxRag) {
+    // Store response from this test to score later
+    let finalResponse = '';
+
+    for (const turn of test.turns) {
+      mindFlowHistory.push({ role: turn.role, content: turn.content });
+
+      if (turn.role === 'user' && turn !== test.turns[test.turns.length - 1]) {
+        const response = await this._callModel(mindFlowHistory, test.system);
+        mindFlowHistory.push({ role: 'assistant', content: response });
+
+        // Commit to sandbox RAG if available
+        if (sandboxRag) {
+          try {
+            await sandboxRag.addNode({
+              content: `Q: ${turn.content}\nA: ${response}`,
+              context: test.id,
+              layer: 1,
+              parentId: 'root'
+            });
+          } catch { /* non-critical */ }
+        }
+      }
+    }
+
+    // Get final response
+    finalResponse = await this._callModel(mindFlowHistory, test.system);
+    mindFlowHistory.push({ role: 'assistant', content: finalResponse });
+
+    // Commit final exchange to sandbox RAG
+    if (sandboxRag) {
+      try {
+        const lastUserTurn = test.turns[test.turns.length - 1];
+        await sandboxRag.addNode({
+          content: `Q: ${lastUserTurn.content}\nA: ${finalResponse}`,
+          context: test.id,
+          layer: 1,
+          parentId: 'root'
+        });
+      } catch { /* non-critical */ }
+    }
+
+    return this._scoreResponse(test, finalResponse, mindFlowHistory);
+  }
+
+  /**
+   * Run enabled external benchmarks.
+   */
+  async _runExternalBenchmarks() {
+    const fs = require('fs');
+    const benchmarkMap = {
+      'hle': { Class: HLEBenchmark, file: 'hle.json' },
+      'tau2': { Class: Tau2Benchmark, file: 'tau2.json' },
+      'arc_agi2': { Class: ArcAGI2Benchmark, file: 'arc_agi2.json' },
+      'vending2': { Class: VendingBench2Stub, file: 'vending2_stub.json' },
+    };
+
+    // Bound callModel for external benchmarks
+    const callModel = (messages, system) => this._callModel(messages, system);
+
+    for (const benchName of this.externalBenchmarks) {
+      const config = benchmarkMap[benchName];
+      if (!config) continue;
+
+      const dataPath = path.join(this.externalDataDir, config.file);
+      if (!fs.existsSync(dataPath)) {
+        this.log(`[External] Skipping ${benchName}: data file not found at ${dataPath}`);
+        this.results.external[benchName] = { score: 0, details: [], count: 0, skipped: true };
+        continue;
+      }
+
+      this.emit('progress', { phase: 'external', benchmark: benchName, status: 'running' });
+      this.log(`\n${'='.repeat(60)}`);
+      this.log(`[External] Running: ${benchName}`);
+      this.log('='.repeat(60));
+
+      try {
+        const runner = new config.Class({ callModel, verbose: this.verbose });
+        await runner.loadDataset(dataPath);
+
+        // Forward progress events
+        runner.on('progress', (p) => {
+          this.emit('progress', { phase: 'external', benchmark: benchName, ...p });
+        });
+
+        const result = await runner.runAll();
+        this.results.external[benchName] = {
+          score: result.score,
+          details: result.details,
+          count: result.count,
+        };
+
+        this.emit('progress', {
+          phase: 'external',
+          benchmark: benchName,
+          status: 'done',
+          score: result.score
+        });
+
+        this.log(`[External] ${benchName}: ${result.score}/100`);
+      } catch (error) {
+        this.log(`[External] ${benchName} failed: ${error.message}`);
+        this.results.external[benchName] = { score: 0, details: [], count: 0, error: error.message };
+        this.emit('progress', { phase: 'external', benchmark: benchName, status: 'error', error: error.message });
+      }
+    }
+  }
+
+  /**
+   * Compute the combined overall score.
+   * Combined = 70% i,Robot + 30% external average.
+   */
+  _computeCombinedScore() {
+    const externalScores = Object.values(this.results.external)
+      .filter(e => !e.skipped && e.score !== undefined)
+      .map(e => e.score);
+
+    this.results.externalOverall = externalScores.length > 0
+      ? Math.round(externalScores.reduce((a, b) => a + b, 0) / externalScores.length)
+      : 0;
+
+    if (externalScores.length > 0) {
+      this.results.combinedOverall = Math.round(
+        this.results.overall * 0.7 + this.results.externalOverall * 0.3
+      );
+    } else {
+      this.results.combinedOverall = this.results.overall;
+    }
   }
 
   /**

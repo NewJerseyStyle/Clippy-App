@@ -51,11 +51,16 @@ const benchmarkModelStatus = document.getElementById('benchmark-model-status');
 const checkLeaderboardBtn = document.getElementById('check-leaderboard-btn');
 const runBenchmarkBtn = document.getElementById('run-benchmark-btn');
 const benchmarkProgress = document.getElementById('benchmark-progress');
+const benchmarkPhaseLabel = document.getElementById('benchmark-phase-label');
 const benchmarkFill = document.getElementById('benchmark-fill');
 const benchmarkProgressText = document.getElementById('benchmark-progress-text');
 const benchmarkResultsDiv = document.getElementById('benchmark-results');
 const benchmarkResultsTable = document.getElementById('benchmark-results-table');
 const benchmarkOverall = document.getElementById('benchmark-overall');
+const benchmarkConfirmModal = document.getElementById('benchmark-confirm');
+const confirmBenchmarkBtn = document.getElementById('confirm-benchmark-run');
+const cancelBenchmarkBtn = document.getElementById('cancel-benchmark-run');
+const benchmarkConfirmClose = document.getElementById('benchmark-confirm-close');
 
 // Load all settings from main process (single source of truth)
 const saved = ipcRenderer.sendSync('get-settings');
@@ -206,6 +211,29 @@ function updateSymbolicVisibility() {
 symbolicEnabled.addEventListener('change', updateSymbolicVisibility);
 updateSymbolicVisibility(); // Apply on load
 
+// Disable MCP servers when i,Robot mode is active (safety measure)
+function updateMcpAvailability() {
+  const irobotOn = irobotMode && irobotMode.checked;
+
+  // Reasoning MCP section
+  const mcpReasoningWarning = document.getElementById('mcp-irobot-warning');
+  const mcpReasoningFieldset = document.getElementById('mcp-reasoning-fieldset');
+  const mcpReasoningAddRow = document.getElementById('mcp-reasoning-add-row');
+  if (mcpReasoningWarning) mcpReasoningWarning.style.display = irobotOn ? 'block' : 'none';
+  if (mcpReasoningAddRow) mcpReasoningAddRow.style.display = irobotOn ? 'none' : 'flex';
+  if (mcpServerList) mcpServerList.classList.toggle('mcp-section-disabled', irobotOn);
+
+  // General MCP section
+  const generalMcpWarning = document.getElementById('general-mcp-irobot-warning');
+  const generalMcpAddRow = document.getElementById('mcp-general-add-row');
+  if (generalMcpWarning) generalMcpWarning.style.display = irobotOn ? 'block' : 'none';
+  if (generalMcpAddRow) generalMcpAddRow.style.display = irobotOn ? 'none' : 'flex';
+  if (generalMcpServerList) generalMcpServerList.classList.toggle('mcp-section-disabled', irobotOn);
+}
+
+if (irobotMode) irobotMode.addEventListener('change', updateMcpAvailability);
+updateMcpAvailability(); // Apply on load
+
 // Mode dependencies: API endpoint → eliza/memory/irobot, memory → irobot
 function updateModeDependencies() {
   const hasEndpoint = apiEndpoint.value.trim() !== '';
@@ -232,6 +260,7 @@ function updateModeDependencies() {
 
   extensionsSection.style.display = hasEndpoint ? 'block' : 'none';
   updateBenchmarkVisibility();
+  updateMcpAvailability();
 }
 
 apiEndpoint.addEventListener('input', updateModeDependencies);
@@ -344,7 +373,7 @@ checkLeaderboardBtn.addEventListener('click', () => {
   ipcRenderer.send('check-model-leaderboard', modelName);
 });
 
-// Run benchmark button
+// Run benchmark button — show confirmation modal first
 runBenchmarkBtn.addEventListener('click', () => {
   const endpoint = apiEndpoint.value.trim();
   const key = apiKey.value.trim();
@@ -356,14 +385,33 @@ runBenchmarkBtn.addEventListener('click', () => {
     return;
   }
 
+  // Show confirmation modal
+  benchmarkConfirmModal.style.display = 'block';
+});
+
+// Benchmark confirmation modal handlers
+function startBenchmarkRun() {
+  benchmarkConfirmModal.style.display = 'none';
   runBenchmarkBtn.disabled = true;
   benchmarkProgress.style.display = 'block';
   benchmarkResultsDiv.style.display = 'none';
   benchmarkFill.style.width = '0%';
-  benchmarkProgressText.textContent = 'Starting benchmark...';
+  benchmarkPhaseLabel.textContent = 'Preparing...';
+  benchmarkProgressText.textContent = 'Downloading external datasets...';
 
+  const endpoint = apiEndpoint.value.trim();
+  const key = apiKey.value.trim();
+  const modelName = model.value.trim();
   ipcRenderer.send('run-benchmark', { apiEndpoint: endpoint, apiKey: key, model: modelName });
-});
+}
+
+function cancelBenchmarkConfirm() {
+  benchmarkConfirmModal.style.display = 'none';
+}
+
+confirmBenchmarkBtn.addEventListener('click', startBenchmarkRun);
+cancelBenchmarkBtn.addEventListener('click', cancelBenchmarkConfirm);
+benchmarkConfirmClose.addEventListener('click', cancelBenchmarkConfirm);
 
 // Leaderboard check result
 ipcRenderer.on('model-leaderboard-result', (event, data) => {
@@ -379,13 +427,57 @@ ipcRenderer.on('model-leaderboard-result', (event, data) => {
   }
 });
 
-// Benchmark progress updates
+// Benchmark progress updates — handles setup, irobot, and external phases
+const TOTAL_IROBOT_CATEGORIES = 8;
+const EXTERNAL_BENCHMARK_NAMES = { hle: 'HLE', tau2: 'Tau2', arc_agi2: 'ARC-AGI-2', vending2: 'Vending Bench 2' };
+const TOTAL_EXTERNAL = Object.keys(EXTERNAL_BENCHMARK_NAMES).length;
+let irobotCategoriesDone = 0;
+let externalBenchmarksDone = 0;
+
 ipcRenderer.on('benchmark-progress', (event, data) => {
-  const totalCategories = 8;
-  const categoriesDone = data.categoriesDone || 0;
-  const pct = Math.round((categoriesDone / totalCategories) * 100);
-  benchmarkFill.style.width = pct + '%';
-  benchmarkProgressText.textContent = `${data.category}: ${data.status} ${data.score !== undefined ? '(' + data.score + '/100)' : ''}`;
+  const phase = data.phase || 'irobot';
+
+  if (phase === 'setup') {
+    benchmarkPhaseLabel.textContent = 'Setup';
+    benchmarkProgressText.textContent = data.message || 'Preparing...';
+    benchmarkFill.style.width = '0%';
+    irobotCategoriesDone = 0;
+    externalBenchmarksDone = 0;
+    return;
+  }
+
+  if (phase === 'irobot') {
+    benchmarkPhaseLabel.textContent = 'Phase 1/2: i,Robot Categories';
+    if (data.status === 'done') irobotCategoriesDone++;
+    // i,Robot phase is 0-70% of the bar
+    const pct = Math.round((irobotCategoriesDone / TOTAL_IROBOT_CATEGORIES) * 70);
+    benchmarkFill.style.width = pct + '%';
+    const label = data.category || '';
+    const scoreText = data.score !== undefined ? ` (${data.score}/100)` : '';
+    benchmarkProgressText.textContent = `${label}: ${data.status}${scoreText}`;
+    return;
+  }
+
+  if (phase === 'external') {
+    benchmarkPhaseLabel.textContent = 'Phase 2/2: External Benchmarks';
+    const benchLabel = EXTERNAL_BENCHMARK_NAMES[data.benchmark] || data.benchmark;
+
+    if (data.status === 'done' || data.status === 'error') {
+      externalBenchmarksDone++;
+    }
+
+    // External phase is 70-100% of the bar
+    const pct = 70 + Math.round((externalBenchmarksDone / TOTAL_EXTERNAL) * 30);
+    benchmarkFill.style.width = pct + '%';
+
+    if (data.current && data.total) {
+      benchmarkProgressText.textContent = `${benchLabel}: ${data.current}/${data.total}`;
+    } else {
+      const scoreText = data.score !== undefined ? ` (${data.score}/100)` : '';
+      benchmarkProgressText.textContent = `${benchLabel}: ${data.status}${scoreText}`;
+    }
+    return;
+  }
 });
 
 // Benchmark complete
@@ -394,7 +486,7 @@ ipcRenderer.on('benchmark-complete', (event, results) => {
   benchmarkProgress.style.display = 'none';
   benchmarkResultsDiv.style.display = 'block';
 
-  // Build results table
+  // Build results table — i,Robot categories
   const categoryLabels = {
     memory_maintenance: 'Memory Maintenance',
     self_consciousness: 'Self-Consciousness',
@@ -406,7 +498,8 @@ ipcRenderer.on('benchmark-complete', (event, results) => {
     checkpoint_handling: 'Checkpoint Handling'
   };
 
-  let tableHtml = '<table><tr><th>Category</th><th>Score</th><th>Passed</th></tr>';
+  let tableHtml = '<table><tr><th colspan="3" style="text-align:left">i,Robot Categories</th></tr>';
+  tableHtml += '<tr><th>Category</th><th>Score</th><th>Passed</th></tr>';
   for (const [cat, label] of Object.entries(categoryLabels)) {
     const catResult = results.categories[cat];
     if (catResult) {
@@ -418,14 +511,42 @@ ipcRenderer.on('benchmark-complete', (event, results) => {
       </tr>`;
     }
   }
+
+  // External benchmarks
+  if (results.external && Object.keys(results.external).length > 0) {
+    const extLabels = { hle: 'HLE', tau2: 'Tau2', arc_agi2: 'ARC-AGI-2', vending2: 'Vending Bench 2' };
+    tableHtml += '<tr><th colspan="3" style="text-align:left;padding-top:10px">External Benchmarks</th></tr>';
+    tableHtml += '<tr><th>Benchmark</th><th>Score</th><th>Items</th></tr>';
+    for (const [bench, label] of Object.entries(extLabels)) {
+      const ext = results.external[bench];
+      if (ext) {
+        const scoreColor = ext.score >= 60 ? '#155724' : ext.score >= 40 ? '#856404' : '#721c24';
+        const status = ext.skipped ? 'skipped' : `${ext.count}`;
+        tableHtml += `<tr>
+          <td>${label}</td>
+          <td style="color:${scoreColor};font-weight:bold">${ext.skipped ? '-' : ext.score + '/100'}</td>
+          <td>${status}</td>
+        </tr>`;
+      }
+    }
+  }
+
   tableHtml += '</table>';
   benchmarkResultsTable.innerHTML = tableHtml;
 
-  // Overall score
-  benchmarkOverall.textContent = `Overall Score: ${results.overall}/100`;
-  if (results.overall >= 60) {
+  // Overall scores
+  const combined = results.combinedOverall || results.overall;
+  let overallHtml = `i,Robot: ${results.overall}/100`;
+  if (results.externalOverall !== undefined) {
+    overallHtml += ` | External: ${results.externalOverall}/100`;
+  }
+  overallHtml += ` | Combined: ${combined}/100`;
+  if (results.mindFlow) overallHtml += ' (Mind Flow)';
+  benchmarkOverall.textContent = overallHtml;
+
+  if (combined >= 60) {
     benchmarkOverall.className = 'score-high';
-  } else if (results.overall >= 40) {
+  } else if (combined >= 40) {
     benchmarkOverall.className = 'score-mid';
   } else {
     benchmarkOverall.className = 'score-low';
