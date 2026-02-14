@@ -8,6 +8,7 @@ const { SymbolicReasoningManager } = require('./rag-system/symbolic_reasoning.js
 const { IRobotBenchmark, RECOMMENDED_MODELS } = require('./rag-system/benchmark.js');
 const { LeaderboardClient, buildModelWarning } = require('./rag-system/leaderboard_client.js');
 const { downloadAll, datasetsExist, DEFAULT_OUTPUT_DIR } = require('./benchmark/download_datasets.js');
+const { MemoryOptimizer } = require('./rag-system/memory_optimizer.js');
 
 const store = new Store();
 const leaderboardClient = new LeaderboardClient({ verbose: true });
@@ -16,6 +17,7 @@ let tray = null;
 let mainWindow = null;
 let settingsWindow = null;
 let memory = null;
+let memoryOptimizer = null;
 let memoryStatus = 'idle';
 let learningInterval = null;
 let continuousAgent = null;
@@ -35,9 +37,48 @@ async function initializeMemory() {
   });
   await memory.initialize();
   console.log('Memory initialized');
+
+  // Initialize GRPO memory optimizer
+  memoryOptimizer = new MemoryOptimizer(memory, {
+    dataDir: memory.options.dataDir,
+    callModel: createCallModelForOptimizer(),
+  });
+  await memoryOptimizer.loadExperiences();
+  console.log('Memory optimizer initialized');
+
   if (store.get('intelligent-memory')) {
     startBackgroundLearning();
   }
+}
+
+/**
+ * Create a callModel function for the memory optimizer using the
+ * configured API endpoint (OpenAI-compatible).
+ */
+function createCallModelForOptimizer() {
+  return async (prompt, maxTokens = 500) => {
+    const axios = require('axios');
+    const endpoint = store.get('api-endpoint', 'https://api.groq.com/openai/v1');
+    const apiKey = store.get('api-key', '');
+    const model = store.get('model', 'llama-3.3-70b-versatile');
+
+    if (!apiKey) return ''; // no API key, optimizer will use heuristics
+
+    const resp = await axios.post(`${endpoint}/chat/completions`, {
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature: 0.3
+    }, {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      timeout: 30000
+    });
+
+    return resp.data.choices[0].message.content;
+  };
 }
 
 function startBackgroundLearning() {
@@ -111,6 +152,7 @@ async function startIRobotMode() {
   continuousAgent = new ContinuousAgent({
     apiKey: store.get('api-key'),
     longTermMemory: memory,
+    memoryOptimizer: memoryOptimizer,
     symbolicReasoning: symbolicReasoning,
     webSearchEnabled: store.get('web-search-enabled', false),
     verbose: true,

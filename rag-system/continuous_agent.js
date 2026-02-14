@@ -296,6 +296,7 @@ class WorkingMemory {
     this.items = [];
     this.longTermMemory = longTermMemory;
     this.dialecticEngine = null; // Set by ContinuousAgent after construction
+    this.memoryOptimizer = null; // Set externally to enable GRPO optimization
 
     this.attention = {
       primary: null,
@@ -442,6 +443,7 @@ class WorkingMemory {
                           contradictions: mergeResult.contradictions || []
                       }
                   });
+                  if (this.memoryOptimizer) this.memoryOptimizer.tick();
                   return;
               }
           }
@@ -457,6 +459,10 @@ class WorkingMemory {
                   timestamp: item.timestamp
               }
           });
+          // Tick the GRPO optimizer after each memory commit
+          if (this.memoryOptimizer) {
+              this.memoryOptimizer.tick();
+          }
       } catch (e) {
           console.error("[WorkingMemory] Error saving to long term memory", e);
       }
@@ -517,6 +523,7 @@ class ContinuousAgent extends EventEmitter {
     this.workingMemory = new WorkingMemory(20, this.longTermMemory);
     this.dialectic = new DialecticEngine(this);
     this.workingMemory.dialecticEngine = this.dialectic;
+    this.workingMemory.memoryOptimizer = options.memoryOptimizer || null;
     this.symbolicReasoning = options.symbolicReasoning || null;
     this.webSearchEnabled = options.webSearchEnabled || false;
 
