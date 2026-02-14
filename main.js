@@ -71,17 +71,17 @@ async function initializeSymbolicReasoning() {
 
   if (!store.get('symbolic-enabled')) return null;
 
-  const baseUrl = store.get('symbolic-openai-base-url', '');
-  const apiKey = store.get('symbolic-openai-api-key', '');
+  const baseUrl = store.get('api-endpoint', '');
+  const apiKey = store.get('api-key', '');
   if (!baseUrl || !apiKey) {
-    console.log('Symbolic reasoning enabled but no OpenAI-compatible API configured');
+    console.log('Symbolic reasoning enabled but no API configured');
     return null;
   }
 
   symbolicReasoning = new SymbolicReasoningManager({
-    openaiBaseUrl: baseUrl,
+    openaiBaseUrl: baseUrl.replace(/\/chat\/completions$/, ''),
     openaiApiKey: apiKey,
-    openaiModel: store.get('symbolic-openai-model', 'gpt-4o-mini'),
+    openaiModel: store.get('model', 'gpt-4o-mini'),
     enableAlgebrite: store.get('symbolic-algebrite', false),
     enableZ3: store.get('symbolic-z3', false),
     enableSwipl: store.get('symbolic-swipl', false),
@@ -145,7 +145,10 @@ function createMainWindow() {
 
   mainWindow.loadFile('index.html');
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
-  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    mainWindow.setIgnoreMouseEvents(true, { forward: true });
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -191,6 +194,7 @@ function checkForUpdates() {
 }
 
 app.on('ready', async () => {
+  Store.initRenderer();
   createMainWindow();
   if (store.get('intelligent-memory')) {
     await initializeMemory();
@@ -210,7 +214,7 @@ app.on('ready', async () => {
         autoHidden = false;
       }
     }},
-    // { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
+    { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
     { label: 'Check for Updates', click: () => { checkForUpdates(); } },
     { label: 'Quit', click: () => { app.quit(); } }
   ]);
@@ -264,10 +268,17 @@ app.on('activate', () => {
 });
 
 ipcMain.on('show-context-menu', () => {
+  const irobotOn = store.get('irobot-mode', false);
   const menu = Menu.buildFromTemplate([
     { label: 'Chat History', click: () => { createChatHistoryWindow(); } },
+    { label: 'New Conversation', visible: !irobotOn, click: () => {
+      const history = store.get('chat-history', []);
+      history.push({ role: 'separator', timestamp: new Date().toISOString() });
+      store.set('chat-history', history);
+      if (mainWindow) mainWindow.webContents.send('new-conversation');
+    }},
     { type: 'separator' },
-    // { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
+    { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
     { label: 'Check for Updates', click: () => { checkForUpdates(); } },
     { type: 'separator' },
     { label: 'Hide Clippy', click: () => { if (mainWindow) mainWindow.webContents.send('hide-with-animation'); } },
@@ -303,6 +314,10 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore, options) => {
   }
 });
 
+ipcMain.on('renderer-error', (event, msg) => {
+  console.error('RENDERER ERROR:', msg);
+});
+
 ipcMain.on('hide-window', () => {
   if (mainWindow) mainWindow.hide();
 });
@@ -311,33 +326,45 @@ ipcMain.on('check-for-updates', () => {
   checkForUpdates();
 });
 
-ipcMain.on('settings-updated', async (event, settings) => {
-  if (settings['intelligent-memory']) {
-    await initializeMemory();
-    startBackgroundLearning();
-  } else {
-    stopBackgroundLearning();
+// Return all settings to renderer (used by settings.js via sendSync)
+ipcMain.on('get-settings', (event) => {
+  event.returnValue = store.store;
+});
+
+ipcMain.on('save-settings', (event, settings) => {
+  // Save all settings synchronously — must complete before renderer closes
+  for (const [key, value] of Object.entries(settings)) {
+    store.set(key, value);
   }
 
-  // Reinitialize symbolic reasoning if i,Robot is running and settings changed
-  if (settings['irobot-mode']) {
-    // If agent is already running, update its symbolic reasoning in-place
-    if (continuousAgent) {
-      await initializeSymbolicReasoning();
-      continuousAgent.symbolicReasoning = symbolicReasoning;
-    } else {
-      await startIRobotMode();
+  // Unblock the renderer so window.close() can proceed
+  event.returnValue = true;
+
+  // Async side effects run after the renderer is unblocked
+  (async () => {
+    // Notify main window to reload settings from store
+    if (mainWindow) {
+      mainWindow.webContents.send('settings-changed');
     }
-  } else {
-    stopIRobotMode();
-  }
 
-  // Reload main window if character changed (must be last — reload drops IPC)
-  const newCharacter = settings['character'] || 'Clippy';
-  if (newCharacter !== currentCharacter && mainWindow) {
-    currentCharacter = newCharacter;
-    mainWindow.reload();
-  }
+    if (settings['intelligent-memory']) {
+      await initializeMemory();
+      startBackgroundLearning();
+    } else {
+      stopBackgroundLearning();
+    }
+
+    if (settings['irobot-mode']) {
+      if (continuousAgent) {
+        await initializeSymbolicReasoning();
+        continuousAgent.symbolicReasoning = symbolicReasoning;
+      } else {
+        await startIRobotMode();
+      }
+    } else {
+      stopIRobotMode();
+    }
+  })();
 });
 
 ipcMain.on('clear-memory', async () => {
