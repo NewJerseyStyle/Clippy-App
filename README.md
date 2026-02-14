@@ -16,9 +16,9 @@ A modern, AI-powered desktop version of the classic Clippy assistant, built with
 <!-- DOWNLOADS_TABLE_START -->
 | Platform | Download |
 |---|---|
-| Windows | [clippy-electron.Setup.1.1.2.exe](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.1.2/clippy-electron.Setup.1.1.2.exe) |
-| macOS | [clippy-electron-1.1.2-arm64.dmg](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.1.2/clippy-electron-1.1.2-arm64.dmg) |
-| Linux | [clippy-electron-1.1.2.AppImage](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.1.2/clippy-electron-1.1.2.AppImage) |
+| macOS | [clippy-electron-1.1.3-arm64.dmg](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.1.3/clippy-electron-1.1.3-arm64.dmg) |
+| Linux | [clippy-electron-1.1.3.AppImage](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.1.3/clippy-electron-1.1.3.AppImage) |
+| Windows | [clippy-electron.Setup.1.1.3.exe](https://github.com/NewJerseyStyle/Clippy-App/releases/download/v1.1.3/clippy-electron.Setup.1.1.3.exe) |
 <!-- DOWNLOADS_TABLE_END -->
 
 ### How to Use 🖇️
