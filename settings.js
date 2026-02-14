@@ -1,6 +1,9 @@
 const { ipcRenderer } = require('electron');
-const Store = require('electron-store');
-const store = new Store();
+
+// Forward any JS errors to the terminal (main process console)
+window.onerror = (msg, url, line, col, error) => {
+  ipcRenderer.send('renderer-error', `settings.js:${line}:${col} ${msg}`);
+};
 
 const settingsForm = document.getElementById('settings-form');
 const apiEndpoint = document.getElementById('api-endpoint');
@@ -31,9 +34,6 @@ const memoryStatus = document.getElementById('memory-status');
 // Symbolic Reasoning elements
 const symbolicEnabled = document.getElementById('symbolic-enabled');
 const symbolicOptions = document.getElementById('symbolic-options');
-const symbolicOpenaiBaseUrl = document.getElementById('symbolic-openai-base-url');
-const symbolicOpenaiApiKey = document.getElementById('symbolic-openai-api-key');
-const symbolicOpenaiModel = document.getElementById('symbolic-openai-model');
 const symbolicAlgebrite = document.getElementById('symbolic-algebrite');
 const symbolicZ3 = document.getElementById('symbolic-z3');
 const symbolicSwipl = document.getElementById('symbolic-swipl');
@@ -45,35 +45,46 @@ const extensionsSection = document.getElementById('extensions-section');
 const generalMcpServerList = document.getElementById('general-mcp-server-list');
 const generalMcpAddBtn = document.getElementById('general-mcp-add-btn');
 
-// Load saved settings
-apiEndpoint.value = store.get('api-endpoint', '');
-apiKey.value = store.get('api-key', '');
-model.value = store.get('model', '');
-elizaMode.checked = store.get('eliza-mode', false);
-enableAnimations.checked = store.get('enable-animations', false);
-character.value = store.get('character', 'Clippy');
-if (irobotMode) irobotMode.checked = store.get('irobot-mode', false);
+// Benchmark elements
+const benchmarkSection = document.getElementById('benchmark-section');
+const benchmarkModelStatus = document.getElementById('benchmark-model-status');
+const checkLeaderboardBtn = document.getElementById('check-leaderboard-btn');
+const runBenchmarkBtn = document.getElementById('run-benchmark-btn');
+const benchmarkProgress = document.getElementById('benchmark-progress');
+const benchmarkFill = document.getElementById('benchmark-fill');
+const benchmarkProgressText = document.getElementById('benchmark-progress-text');
+const benchmarkResultsDiv = document.getElementById('benchmark-results');
+const benchmarkResultsTable = document.getElementById('benchmark-results-table');
+const benchmarkOverall = document.getElementById('benchmark-overall');
+
+// Load all settings from main process (single source of truth)
+const saved = ipcRenderer.sendSync('get-settings');
+
+apiEndpoint.value = saved['api-endpoint'] || '';
+apiKey.value = saved['api-key'] || '';
+model.value = saved['model'] || '';
+elizaMode.checked = !!saved['eliza-mode'];
+enableAnimations.checked = !!saved['enable-animations'];
+if (character) character.value = saved['character'] || 'Clippy';
+if (irobotMode) irobotMode.checked = !!saved['irobot-mode'];
 
 // Load memory settings
-intelligentMemory.checked = store.get('intelligent-memory', false);
-embeddingProvider.value = store.get('embedding-provider', 'local');
-openaiEmbeddingApiKey.value = store.get('openai-embedding-api-key', '');
-openaiEmbeddingBaseUrl.value = store.get('openai-embedding-base-url', 'https://api.openai.com/v1');
-openaiEmbeddingModel.value = store.get('openai-embedding-model', 'text-embedding-ada-002');
-memoryReadNews.checked = store.get('memory-read-news', false);
+intelligentMemory.checked = !!saved['intelligent-memory'];
+embeddingProvider.value = saved['embedding-provider'] || 'local';
+openaiEmbeddingApiKey.value = saved['openai-embedding-api-key'] || '';
+openaiEmbeddingBaseUrl.value = saved['openai-embedding-base-url'] || 'https://api.openai.com/v1';
+openaiEmbeddingModel.value = saved['openai-embedding-model'] || 'text-embedding-ada-002';
+memoryReadNews.checked = !!saved['memory-read-news'];
 
 // Load symbolic reasoning settings
-symbolicEnabled.checked = store.get('symbolic-enabled', false);
-symbolicOpenaiBaseUrl.value = store.get('symbolic-openai-base-url', '');
-symbolicOpenaiApiKey.value = store.get('symbolic-openai-api-key', '');
-symbolicOpenaiModel.value = store.get('symbolic-openai-model', 'gpt-4o-mini');
-symbolicAlgebrite.checked = store.get('symbolic-algebrite', false);
-symbolicZ3.checked = store.get('symbolic-z3', false);
-symbolicSwipl.checked = store.get('symbolic-swipl', false);
+symbolicEnabled.checked = !!saved['symbolic-enabled'];
+symbolicAlgebrite.checked = !!saved['symbolic-algebrite'];
+symbolicZ3.checked = !!saved['symbolic-z3'];
+symbolicSwipl.checked = !!saved['symbolic-swipl'];
 
 // MCP servers state
-let mcpServers = store.get('symbolic-mcp-servers', []);
-let generalMcpServers = store.get('mcp-servers', []);
+let mcpServers = saved['symbolic-mcp-servers'] || [];
+let generalMcpServers = saved['mcp-servers'] || [];
 
 function renderMcpServers() {
   mcpServerList.innerHTML = '';
@@ -200,7 +211,13 @@ function updateModeDependencies() {
   const hasEndpoint = apiEndpoint.value.trim() !== '';
 
   elizaMode.disabled = !hasEndpoint;
+  enableAnimations.disabled = !hasEndpoint;
   intelligentMemory.disabled = !hasEndpoint;
+  symbolicEnabled.disabled = !hasEndpoint;
+
+  if (!hasEndpoint && enableAnimations.checked) {
+    enableAnimations.checked = false;
+  }
 
   if (!hasEndpoint && intelligentMemory.checked) {
     intelligentMemory.checked = false;
@@ -252,52 +269,41 @@ if (irobotMode && irobotWarningModal) {
   }
 }
 
-// Save settings on submit
+// Save settings on submit — send plain object to main process, no electron-store
 settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
-  store.set('api-endpoint', apiEndpoint.value);
-  store.set('api-key', apiKey.value);
-  store.set('model', model.value);
-  store.set('eliza-mode', elizaMode.checked);
-  store.set('enable-animations', enableAnimations.checked);
-  store.set('character', character.value);
-  if (irobotMode) store.set('irobot-mode', irobotMode.checked);
 
-  // Save memory settings
-  store.set('intelligent-memory', intelligentMemory.checked);
-  store.set('embedding-provider', embeddingProvider.value);
-  store.set('openai-embedding-api-key', openaiEmbeddingApiKey.value);
-  store.set('openai-embedding-base-url', openaiEmbeddingBaseUrl.value);
-  store.set('openai-embedding-model', openaiEmbeddingModel.value);
-  store.set('memory-read-news', memoryReadNews.checked);
+  const settings = {
+    'api-endpoint': apiEndpoint.value,
+    'api-key': apiKey.value,
+    'model': model.value,
+    'eliza-mode': elizaMode.checked,
+    'enable-animations': enableAnimations.checked,
+    'irobot-mode': irobotMode ? irobotMode.checked : false,
+    'intelligent-memory': intelligentMemory.checked,
+    'embedding-provider': embeddingProvider.value,
+    'openai-embedding-api-key': openaiEmbeddingApiKey.value,
+    'openai-embedding-base-url': openaiEmbeddingBaseUrl.value,
+    'openai-embedding-model': openaiEmbeddingModel.value,
+    'memory-read-news': memoryReadNews.checked,
+    'symbolic-enabled': symbolicEnabled.checked,
+    'symbolic-algebrite': symbolicAlgebrite.checked,
+    'symbolic-z3': symbolicZ3.checked,
+    'symbolic-swipl': symbolicSwipl.checked,
+    'symbolic-mcp-servers': mcpServers,
+    'mcp-servers': generalMcpServers,
+  };
 
-  // Save symbolic reasoning settings
-  store.set('symbolic-enabled', symbolicEnabled.checked);
-  store.set('symbolic-openai-base-url', symbolicOpenaiBaseUrl.value);
-  store.set('symbolic-openai-api-key', symbolicOpenaiApiKey.value);
-  store.set('symbolic-openai-model', symbolicOpenaiModel.value);
-  store.set('symbolic-algebrite', symbolicAlgebrite.checked);
-  store.set('symbolic-z3', symbolicZ3.checked);
-  store.set('symbolic-swipl', symbolicSwipl.checked);
-  store.set('symbolic-mcp-servers', mcpServers);
-  store.set('mcp-servers', generalMcpServers);
+  if (character) settings['character'] = character.value;
 
-  ipcRenderer.send('settings-updated', store.store);
+  // sendSync blocks until main process confirms save — prevents window.close()
+  // from destroying the IPC channel before the message is delivered
+  const saved = ipcRenderer.sendSync('save-settings', settings);
+  console.log('Settings saved:', saved);
   window.close();
 });
 
 // ==================== Benchmark ====================
-
-const benchmarkSection = document.getElementById('benchmark-section');
-const benchmarkModelStatus = document.getElementById('benchmark-model-status');
-const checkLeaderboardBtn = document.getElementById('check-leaderboard-btn');
-const runBenchmarkBtn = document.getElementById('run-benchmark-btn');
-const benchmarkProgress = document.getElementById('benchmark-progress');
-const benchmarkFill = document.getElementById('benchmark-fill');
-const benchmarkProgressText = document.getElementById('benchmark-progress-text');
-const benchmarkResultsDiv = document.getElementById('benchmark-results');
-const benchmarkResultsTable = document.getElementById('benchmark-results-table');
-const benchmarkOverall = document.getElementById('benchmark-overall');
 
 // Show benchmark section when i,Robot mode is on and API is configured
 function updateBenchmarkVisibility() {
@@ -451,4 +457,3 @@ ipcRenderer.on('memory-status-update', (event, status) => {
 
 // Initial status update
 ipcRenderer.send('get-memory-status');
-
