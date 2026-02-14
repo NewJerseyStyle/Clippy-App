@@ -166,11 +166,14 @@
           </label>
         </fieldset>
 
-        <fieldset class="inner-fieldset">
+        <fieldset class="inner-fieldset" id="mcp-reasoning-fieldset">
           <legend>MCP Servers - Reasoning</legend>
+          <div id="mcp-irobot-warning" class="mcp-disabled-warning" style="display: none;">
+            MCP servers are disabled while i, Robot mode is active.
+          </div>
           <p class="hint">External reasoning services via Model Context Protocol.</p>
           <div id="mcp-server-list"></div>
-          <div class="mcp-add-row">
+          <div class="mcp-add-row" id="mcp-reasoning-add-row">
             <input type="text" id="mcp-new-name" placeholder="Name">
             <input type="text" id="mcp-new-url" placeholder="http://localhost:3000">
             <input type="text" id="mcp-new-desc" placeholder="Description">
@@ -184,11 +187,14 @@
     <fieldset class="section" id="extensions-section" style="display: none;">
       <legend>Extensions</legend>
 
-      <fieldset class="inner-fieldset">
+      <fieldset class="inner-fieldset" id="mcp-general-fieldset">
         <legend>MCP Servers - General</legend>
+        <div id="general-mcp-irobot-warning" class="mcp-disabled-warning" style="display: none;">
+          MCP servers are disabled while i, Robot mode is active.
+        </div>
         <p class="hint">Add external services via Model Context Protocol for web search, code execution, and more.</p>
         <div id="general-mcp-server-list"></div>
-        <div class="mcp-add-row">
+        <div class="mcp-add-row" id="mcp-general-add-row">
           <input type="text" id="general-mcp-new-name" placeholder="Name">
           <input type="text" id="general-mcp-new-url" placeholder="http://localhost:3000">
           <input type="text" id="general-mcp-new-desc" placeholder="Description">

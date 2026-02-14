@@ -79,6 +79,13 @@ async function initializeSymbolicReasoning() {
     return null;
   }
 
+  // Disable MCP servers when i,Robot mode is active (safety measure)
+  const irobotActive = store.get('irobot-mode', false);
+  const mcpServers = irobotActive ? [] : store.get('symbolic-mcp-servers', []);
+  if (irobotActive && store.get('symbolic-mcp-servers', []).length > 0) {
+    console.log('MCP servers disabled: i,Robot mode is active');
+  }
+
   symbolicReasoning = new SymbolicReasoningManager({
     openaiBaseUrl: baseUrl.replace(/\/chat\/completions$/, ''),
     openaiApiKey: apiKey,
@@ -86,7 +93,7 @@ async function initializeSymbolicReasoning() {
     enableAlgebrite: store.get('symbolic-algebrite', false),
     enableZ3: store.get('symbolic-z3', false),
     enableSwipl: store.get('symbolic-swipl', false),
-    mcpServers: store.get('symbolic-mcp-servers', []),
+    mcpServers: mcpServers,
     verbose: true
   });
 

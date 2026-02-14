@@ -211,6 +211,29 @@ function updateSymbolicVisibility() {
 symbolicEnabled.addEventListener('change', updateSymbolicVisibility);
 updateSymbolicVisibility(); // Apply on load
 
+// Disable MCP servers when i,Robot mode is active (safety measure)
+function updateMcpAvailability() {
+  const irobotOn = irobotMode && irobotMode.checked;
+
+  // Reasoning MCP section
+  const mcpReasoningWarning = document.getElementById('mcp-irobot-warning');
+  const mcpReasoningFieldset = document.getElementById('mcp-reasoning-fieldset');
+  const mcpReasoningAddRow = document.getElementById('mcp-reasoning-add-row');
+  if (mcpReasoningWarning) mcpReasoningWarning.style.display = irobotOn ? 'block' : 'none';
+  if (mcpReasoningAddRow) mcpReasoningAddRow.style.display = irobotOn ? 'none' : 'flex';
+  if (mcpServerList) mcpServerList.classList.toggle('mcp-section-disabled', irobotOn);
+
+  // General MCP section
+  const generalMcpWarning = document.getElementById('general-mcp-irobot-warning');
+  const generalMcpAddRow = document.getElementById('mcp-general-add-row');
+  if (generalMcpWarning) generalMcpWarning.style.display = irobotOn ? 'block' : 'none';
+  if (generalMcpAddRow) generalMcpAddRow.style.display = irobotOn ? 'none' : 'flex';
+  if (generalMcpServerList) generalMcpServerList.classList.toggle('mcp-section-disabled', irobotOn);
+}
+
+if (irobotMode) irobotMode.addEventListener('change', updateMcpAvailability);
+updateMcpAvailability(); // Apply on load
+
 // Mode dependencies: API endpoint → eliza/memory/irobot, memory → irobot
 function updateModeDependencies() {
   const hasEndpoint = apiEndpoint.value.trim() !== '';
@@ -237,6 +260,7 @@ function updateModeDependencies() {
 
   extensionsSection.style.display = hasEndpoint ? 'block' : 'none';
   updateBenchmarkVisibility();
+  updateMcpAvailability();
 }
 
 apiEndpoint.addEventListener('input', updateModeDependencies);
