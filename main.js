@@ -210,7 +210,7 @@ app.on('ready', async () => {
         autoHidden = false;
       }
     }},
-    { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
+    // { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
     { label: 'Check for Updates', click: () => { checkForUpdates(); } },
     { label: 'Quit', click: () => { app.quit(); } }
   ]);
@@ -267,7 +267,7 @@ ipcMain.on('show-context-menu', () => {
   const menu = Menu.buildFromTemplate([
     { label: 'Chat History', click: () => { createChatHistoryWindow(); } },
     { type: 'separator' },
-    { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
+    // { label: 'Settings', click: () => { if (settingsWindow === null) { createSettingsWindow(); } else { settingsWindow.focus(); } } },
     { label: 'Check for Updates', click: () => { checkForUpdates(); } },
     { type: 'separator' },
     { label: 'Hide Clippy', click: () => { if (mainWindow) mainWindow.webContents.send('hide-with-animation'); } },
